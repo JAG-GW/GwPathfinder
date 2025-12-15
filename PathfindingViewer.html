@@ -1,0 +1,3623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GW Pathfinding Viewer & Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #444;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: #2a2a2a;
+            padding: 15px;
+            border-bottom: 2px solid #444;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #357abd;
+        }
+
+        button.secondary {
+            background: #666;
+        }
+
+        button.secondary:hover {
+            background: #555;
+        }
+
+        button.danger {
+            background: #e74c3c;
+        }
+
+        button.danger:hover {
+            background: #c0392b;
+        }
+
+        button.success {
+            background: #27ae60;
+        }
+
+        button.success:hover {
+            background: #229954;
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            background: #4a90e2;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            display: inline-block;
+        }
+
+        .file-label:hover {
+            background: #357abd;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+
+        #mapCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .stats {
+            background: #2a2a2a;
+            padding: 10px 15px;
+            border-top: 2px solid #444;
+            font-size: 13px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            gap: 5px;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #4a90e2;
+            font-weight: bold;
+        }
+
+        h2 {
+            color: #4a90e2;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        h3 {
+            color: #e0e0e0;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="checkbox"], input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        label {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .info-box {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        .info-box.warning {
+            background: #3a2a1a;
+            border-left: 3px solid #f39c12;
+        }
+
+        .info-box.success {
+            background: #1a3a2a;
+            border-left: 3px solid #27ae60;
+        }
+
+        .info-box.error {
+            background: #3a1a1a;
+            border-left: 3px solid #e74c3c;
+        }
+
+        .mode-indicator {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .mode-indicator.edit {
+            background: #f39c12;
+        }
+
+        .mode-indicator.pathfinding {
+            background: #27ae60;
+        }
+
+        .mode-indicator.viewing {
+            background: #666;
+        }
+
+        .no-data {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .coordinates-display {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .editor-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 400px;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .editor-panel h3 {
+            margin-top: 0;
+            color: #4a90e2;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .form-group input[type="number"],
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .form-group input[type="number"]:focus,
+        .form-group input[type="text"]:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+        }
+
+        .connection-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 5px;
+        }
+
+        .connection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin-bottom: 5px;
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+
+        .connection-item button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+    
+        .selection-rectangle {
+            position: absolute;
+            border: 2px dashed #4a90e2;
+            background: rgba(74, 144, 226, 0.1);
+            pointer-events: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>GW Pathfinding Editor</h2>
+
+        <div class="control-group">
+            <label for="fileInput" class="file-label">Load JSON File</label>
+            <input type="file" id="fileInput" accept=".json">
+            <button id="saveButton" style="margin-top: 10px; width: 100%;" disabled>Save JSON File</button>
+        </div>
+
+        <div id="mapInfo" class="info-box" style="display: none;">
+            <div><strong>Map:</strong> <span id="mapName">-</span></div>
+            <div><strong>Map IDs:</strong> <span id="mapId">-</span></div>
+            <div><strong>Continent:</strong> <span id="mapContinent">-</span></div>
+            <div><strong>Region:</strong> <span id="mapRegion">-</span></div>
+            <div><strong>Type:</strong> <span id="mapType">-</span></div>
+            <button id="btnEditMapInfo" class="secondary" style="width: 100%; margin-top: 5px;">Edit Map Info</button>
+            <button id="btnManageMapIds" class="secondary" style="width: 100%; margin-top: 5px;" disabled>Manage Map IDs</button>
+        </div>
+
+        <div id="modeIndicator" class="mode-indicator viewing">
+            VIEWING MODE
+        </div>
+
+        <h3>Edit Mode</h3>
+        <div class="control-group">
+            <button id="btnAdd" class="success" disabled>Add</button>
+            <button id="btnEdit" class="secondary" disabled>Edit</button>
+            <button id="btnDelete" class="danger" disabled>Delete</button>
+        </div>
+
+        <h3>Element Type</h3>
+        <div class="checkbox-group">
+            <div class="checkbox-item">
+                <input type="radio" id="typePoints" name="elementType" value="points" checked>
+                <label for="typePoints">Points</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="radio" id="typeVisGraph" name="elementType" value="visgraph">
+                <label for="typeVisGraph">Visibility Graph</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="radio" id="typeTeleports" name="elementType" value="teleports">
+                <label for="typeTeleports">Teleports</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="radio" id="typePortals" name="elementType" value="portals">
+                <label for="typePortals">Travel Portals</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="radio" id="typeNpcTravel" name="elementType" value="npctravel">
+                <label for="typeNpcTravel">NPC Travel</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="radio" id="typeEnterTravel" name="elementType" value="entertravel">
+                <label for="typeEnterTravel">Enter Travel</label>
+            </div>
+        </div>
+
+        <h3>Display Options</h3>
+        <div class="checkbox-group">
+            <div class="checkbox-item">
+                <input type="checkbox" id="showGrid" checked>
+                <label for="showGrid">Show Grid</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showTrapezoids" checked>
+                <label for="showTrapezoids">Show Trapezoids</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showPoints" checked>
+                <label for="showPoints">Show Points</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showVisGraph">
+                <label for="showVisGraph">Show Visibility Graph</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showTeleports" checked>
+                <label for="showTeleports">Show Teleports</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showPortals" checked>
+                <label for="showPortals">Show Travel Portals</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showNpcTravel" checked>
+                <label for="showNpcTravel">Show NPC Travel</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="showEnterTravel" checked>
+                <label for="showEnterTravel">Show Enter Travel</label>
+            </div>
+        </div>
+
+        <h3>A* Pathfinding Test</h3>
+        <div class="control-group">
+            <button id="btnTestPath" class="secondary" disabled>Test Path</button>
+            <button id="btnClearPath" class="secondary" disabled>Clear Path</button>
+        </div>
+        <div class="slider-group" style="margin-top: 10px;">
+            <div class="slider-item">
+                <div class="slider-label">
+                    <span>Point Spacing</span>
+                    <span id="pathSpacingValue">1000</span>
+                </div>
+                <input type="range" id="pathSpacing" min="500" max="5000" value="1000" step="100">
+            </div>
+        </div>
+        <div id="pathTestInfo" class="info-box" style="display: none; margin-top: 10px;">
+            <div><strong>Path Cost:</strong> <span id="pathCost">-</span></div>
+            <div><strong>Raw Points:</strong> <span id="pathRawPoints">-</span></div>
+            <div><strong>Simplified Points:</strong> <span id="pathPoints">-</span></div>
+            <div><strong>Time:</strong> <span id="pathTime">-</span></div>
+        </div>
+        <div id="pathCoordsList" class="info-box" style="display: none; margin-top: 10px; max-height: 200px; overflow-y: auto;">
+            <strong>Path Coordinates:</strong>
+            <div id="coordsContent" style="font-family: monospace; font-size: 11px; margin-top: 5px;"></div>
+        </div>
+
+        <h3>Element Sizes</h3>
+        <div class="slider-group">
+            <div class="slider-item">
+                <div class="slider-label">
+                    <span>Point Size</span>
+                    <span id="pointSizeValue">1</span>
+                </div>
+                <input type="range" id="pointSize" min="0.5" max="5" value="1" step="0.5">
+            </div>
+            <div class="slider-item">
+                <div class="slider-label">
+                    <span>Line Thickness</span>
+                    <span id="lineThicknessValue">1</span>
+                </div>
+                <input type="range" id="lineThickness" min="0.5" max="5" value="1" step="0.5">
+            </div>
+            <div class="slider-item">
+                <div class="slider-label">
+                    <span>Portal Size</span>
+                    <span id="portalSizeValue">500</span>
+                </div>
+                <input type="range" id="portalSize" min="50" max="500" value="500" step="10">
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="toolbar">
+            <button id="resetView">Reset View</button>
+            <button id="zoomIn" class="secondary">Zoom In</button>
+            <button id="zoomOut" class="secondary">Zoom Out</button>
+            <span style="margin-left: auto; color: #888;">
+                Zoom: <span id="zoomLevel">100%</span>
+            </span>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="mapCanvas"></canvas>
+            <div class="coordinates-display" id="coordsDisplay">
+                Hover over map
+            </div>
+            <div class="no-data" id="noData">
+                No data loaded. Please select a JSON file.
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">Trapezoids:</span>
+                <span class="stat-value" id="trapCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Points:</span>
+                <span class="stat-value" id="pointCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Teleports:</span>
+                <span class="stat-value" id="teleportCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Travel Portals:</span>
+                <span class="stat-value" id="portalCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">NPC Travel:</span>
+                <span class="stat-value" id="npcTravelCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Enter Travel:</span>
+                <span class="stat-value" id="enterTravelCount">0</span>
+            </div>
+            <div class="stat-item" style="margin-left: auto;">
+                <span id="statusMessage" style="color: #4a90e2;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+        // Application state
+        const state = {
+            data: null,
+
+            selectionMode: false,           // Mode sélection multiple actif
+            selectionStart: null,           // Point de départ du rectangle
+            selectedPoints: new Set(),      // Points sélectionnés
+            selectionRect: null,            // Element DOM du rectangle
+
+            canvas: null,
+            ctx: null,
+            zoom: 1.0,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+            currentFileName: null,
+            hasUnsavedChanges: false,
+
+            // Edit modes
+            editAction: null, // 'add', 'edit', 'delete'
+            elementType: 'points', // 'points', 'visgraph', 'teleports', 'portals'
+            selectedElement: null,
+            isPlacing: false,
+            tempStart: null,
+            lastMouseWorld: null,
+
+            // Pathfinding test
+            isTestingPath: false,
+            pathTestStart: null,
+            pathTestGoal: null,
+            computedPath: null,
+            simplifiedPath: null,
+            pathSpacing: 1000,
+
+            // Portal exit picking
+            isPickingExitPosition: false,
+            pickingConnectionIndex: null,
+
+            options: {
+                showGrid: true,
+                showTrapezoids: true,
+                showPoints: true,
+                showVisGraph: false,
+                showTeleports: true,
+                showPortals: true,
+                showNpcTravel: true,
+                showEnterTravel: true,
+                pointSize: 1,
+                lineThickness: 1,
+                portalSize: 500
+            }
+        };
+
+        // ========================================
+        // Helper Functions
+        // ========================================
+
+        // Extract map ID from filename (e.g., "6_Core_BattleIsles_Kryta_WizardsIsle_ExplorableZone.json" -> 6)
+        function getCurrentMapId() {
+            if (!state.currentFileName) return 0;
+            const match = state.currentFileName.match(/^(\d+)_/);
+            return match ? parseInt(match[1]) : 0;
+        }
+
+        // Find or create a point at the given position
+        // Returns the index of the point
+        function findOrCreatePoint(x, y, threshold = 50) {
+            // Try to find an existing point nearby
+            const existingPointIndex = findNearestPoint(x, y, threshold);
+            if (existingPointIndex !== null) {
+                return existingPointIndex;
+            }
+
+            // Create a new point
+            // Format: [type, x, y, z]
+            state.data.points.push([0, x, y, 0]);
+            state.data.vis_graph.push([]);
+            const newIndex = state.data.points.length - 1;
+
+            // Connect to nearby points
+            connectToNearbyPoints(newIndex, 500); // Connect within 500 units
+
+            return newIndex;
+        }
+
+        // Find nearest point to the given coordinates
+        function findNearestPoint(x, y, threshold) {
+            let nearestIndex = null;
+            let minDist = threshold;
+
+            state.data.points.forEach((point, index) => {
+                const dx = point[1] - x;
+                const dy = point[2] - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestIndex = index;
+                }
+            });
+
+            return nearestIndex;
+        }
+
+        // Connect a point to nearby points in the visibility graph
+        function connectToNearbyPoints(pointIndex, maxDistance) {
+            const point = state.data.points[pointIndex];
+            const [type, x, y, z] = point;
+
+            state.data.points.forEach((otherPoint, otherIndex) => {
+                if (otherIndex === pointIndex) return;
+
+                const [, ox, oy, oz] = otherPoint;
+                const dx = ox - x;
+                const dy = oy - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= maxDistance) {
+                    // Add bidirectional connection if it doesn't exist
+                    addVisGraphEdge(pointIndex, otherIndex, dist);
+                    addVisGraphEdge(otherIndex, pointIndex, dist);
+                }
+            });
+        }
+
+        // Add a vis graph edge if it doesn't already exist
+        function addVisGraphEdge(fromIndex, toIndex, distance) {
+            const edges = state.data.vis_graph[fromIndex];
+            // Check if edge already exists
+            const exists = edges.some(edge => edge[0] === toIndex);
+            if (!exists) {
+                edges.push([toIndex, distance]);
+            }
+        }
+
+        // Remove a vis graph edge
+        function removeVisGraphEdge(fromIndex, toIndex) {
+            const edges = state.data.vis_graph[fromIndex];
+            const edgeIndex = edges.findIndex(edge => edge[0] === toIndex);
+            if (edgeIndex !== -1) {
+                edges.splice(edgeIndex, 1);
+            }
+        }
+
+        // ========================================
+        // Fonctions de Sélection Multiple
+        // ========================================
+
+        function updateSelection(rectX, rectY, rectWidth, rectHeight) {
+            state.selectedPoints.clear();
+            console.log('updateSelection called with rect:', rectX, rectY, rectWidth, rectHeight);
+
+            // Parcourir tous les points
+            state.data.points.forEach((point, index) => {
+                const screenPos = worldToScreen(point[1], point[2]);
+
+                // Vérifier si le point est dans le rectangle
+                if (screenPos.x >= rectX && screenPos.x <= rectX + rectWidth &&
+                    screenPos.y >= rectY && screenPos.y <= rectY + rectHeight) {
+                    state.selectedPoints.add(index);
+                    console.log('Point', index, 'selected at', screenPos);
+                }
+            });
+
+            console.log('Total selected points:', state.selectedPoints.size);
+            draw(); // Redessiner avec les points sélectionnés
+        }
+
+        function deleteSelectedPoints() {
+            if (state.selectedPoints.size === 0) return;
+
+            // Convertir en tableau et trier en ordre CROISSANT pour créer le mapping
+            const indicesToDelete = Array.from(state.selectedPoints).sort((a, b) => a - b);
+            const deletedSet = new Set(indicesToDelete);
+
+            // Créer un mapping ancien index -> nouveau index (ou -1 si supprimé)
+            const indexMapping = new Array(state.data.points.length);
+            let offset = 0;
+            for (let i = 0; i < state.data.points.length; i++) {
+                if (deletedSet.has(i)) {
+                    indexMapping[i] = -1; // Point supprimé
+                    offset++;
+                } else {
+                    indexMapping[i] = i - offset; // Nouveau index après suppression
+                }
+            }
+
+            // Supprimer les points et leurs vis_graph en ordre décroissant pour ne pas décaler les indices
+            for (let i = indicesToDelete.length - 1; i >= 0; i--) {
+                const index = indicesToDelete[i];
+                state.data.points.splice(index, 1);
+                state.data.vis_graph.splice(index, 1);
+            }
+
+            // Mettre à jour les indices dans le vis_graph restant
+            state.data.vis_graph.forEach((edges, pointIndex) => {
+                state.data.vis_graph[pointIndex] = edges
+                    .map(edge => {
+                        // Vérifier que l'edge est valide
+                        if (!edge || edge.length < 2) {
+                            console.warn(`Invalid edge at vis_graph[${pointIndex}]:`, edge);
+                            return null;
+                        }
+
+                        const oldTargetId = edge[0];
+
+                        // Vérifier que l'ancien index est valide
+                        if (oldTargetId === null || oldTargetId === undefined || oldTargetId >= indexMapping.length || oldTargetId < 0) {
+                            console.warn(`Invalid target ID ${oldTargetId} at vis_graph[${pointIndex}], removing edge`);
+                            return null;
+                        }
+
+                        const newTargetId = indexMapping[oldTargetId];
+
+                        // Si le point cible existe encore, retourner avec le nouvel index
+                        if (newTargetId !== undefined && newTargetId !== -1) {
+                            return [newTargetId, edge[1]];
+                        }
+                        return null; // Marquer pour suppression
+                    })
+                    .filter(edge => edge !== null); // Supprimer les edges vers points supprimés
+            });
+
+            state.selectedPoints.clear();
+            markAsModified();
+            updateStats();
+            draw();
+
+            showStatus(`Deleted ${indicesToDelete.length} points`, 'success');
+        }
+
+        // Initialize canvas
+        function initCanvas() {
+            state.canvas = document.getElementById('mapCanvas');
+            state.ctx = state.canvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Mouse events
+            state.canvas.addEventListener('mousedown', handleMouseDown);
+            state.canvas.addEventListener('mousemove', handleMouseMove);
+            state.canvas.addEventListener('mouseup', handleMouseUp);
+            state.canvas.addEventListener('wheel', handleWheel);
+            state.canvas.addEventListener('mouseleave', handleMouseLeave);
+        }
+
+        function resizeCanvas() {
+            const container = state.canvas.parentElement;
+            state.canvas.width = container.clientWidth;
+            state.canvas.height = container.clientHeight;
+            if (state.data && state.ctx) {
+                draw();
+            }
+        }
+
+        // Initialize canvas first
+        initCanvas();
+
+        // File loading and saving
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('saveButton').addEventListener('click', saveJSON);
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            state.currentFileName = file.name;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    state.data = JSON.parse(event.target.result);
+                    loadMapData();
+                    state.hasUnsavedChanges = false;
+                    updateSaveButton();
+                } catch (error) {
+                    alert('Error parsing JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function saveJSON() {
+            if (!state.data) return;
+
+            try {
+                // Helper functions to format numbers exactly like C++ exporter
+                function formatFloat(num) {
+                    if (num === null || num === undefined || isNaN(num)) {
+                        console.warn('Invalid float value:', num, 'defaulting to 0.000');
+                        return '0.000';
+                    }
+                    return num.toFixed(3);
+                }
+
+                function formatInt(num) {
+                    if (num === null || num === undefined || isNaN(num)) {
+                        console.warn('Invalid int value:', num, 'defaulting to 0');
+                        return '0';
+                    }
+                    return Math.floor(num).toString();
+                }
+
+                // Build JSON manually in the exact same format as C++ exporter
+                let json = '{\n';
+
+            // Map metadata
+            const map_ids = state.data.map_ids || [state.data.map_id || 0];
+            json += '  "map_ids": [' + map_ids.join(', ') + '],\n';
+            json += '  "map_name": "' + (state.data.map_name || 'Unknown') + '",\n';
+
+            if (state.data.continent !== undefined) {
+                json += '  "continent": ' + state.data.continent + ',\n';
+            }
+            if (state.data.region !== undefined) {
+                json += '  "region": ' + state.data.region + ',\n';
+            }
+            if (state.data.type !== undefined) {
+                json += '  "type": ' + state.data.type + ',\n';
+            }
+
+            // Trapezoids - format: [id, layer, ax, ay, bx, by, cx, cy, dx, dy]
+            if (state.data.trapezoids && state.data.trapezoids.length > 0) {
+                json += '  "trapezoids": [\n';
+                for (let i = 0; i < state.data.trapezoids.length; i++) {
+                    const trap = state.data.trapezoids[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [id(int), layer(int), 8 floats for coordinates]
+                    json += '    [' + formatInt(trap[0]) + ', ' + formatInt(trap[1]) + ', ';
+                    json += formatFloat(trap[2]) + ', ' + formatFloat(trap[3]) + ', ';
+                    json += formatFloat(trap[4]) + ', ' + formatFloat(trap[5]) + ', ';
+                    json += formatFloat(trap[6]) + ', ' + formatFloat(trap[7]) + ', ';
+                    json += formatFloat(trap[8]) + ', ' + formatFloat(trap[9]) + ']';
+                }
+                json += '\n  ],\n';
+            }
+
+            // Points - format: [id, x, y, layer]
+            if (state.data.points && state.data.points.length > 0) {
+                json += '  "points": [\n';
+                for (let i = 0; i < state.data.points.length; i++) {
+                    const point = state.data.points[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [id(int), x(float), y(float), layer(int)]
+                    json += '    [' + formatInt(point[0]) + ', ';
+                    json += formatFloat(point[1]) + ', ' + formatFloat(point[2]);
+                    json += ', ' + formatInt(point[3]) + ']';
+                }
+                json += '\n  ],\n';
+            }
+
+            // Visibility graph - format: [[point_id, distance], ...]
+            if (state.data.vis_graph && state.data.vis_graph.length > 0) {
+                json += '  "vis_graph": [\n';
+                for (let i = 0; i < state.data.vis_graph.length; i++) {
+                    const edges = state.data.vis_graph[i] || [];
+                    if (i > 0) json += ',\n';
+                    json += '    [';
+                    let validEdgeCount = 0;
+                    for (let j = 0; j < edges.length; j++) {
+                        const edge = edges[j];
+                        // Skip invalid edges
+                        if (!edge || edge.length < 2 || edge[0] === null || edge[0] === undefined || edge[1] === null || edge[1] === undefined) {
+                            console.warn(`Skipping invalid edge at vis_graph[${i}][${j}]:`, edge);
+                            continue;
+                        }
+                        if (validEdgeCount > 0) json += ', ';
+                        // Format: [point_id(int), distance(float)]
+                        json += '[' + formatInt(edge[0]) + ', ' + formatFloat(edge[1]) + ']';
+                        validEdgeCount++;
+                    }
+                    json += ']';
+                }
+                json += '\n  ],\n';
+            }
+
+            // Teleports - format: [enter_x, enter_y, enter_z, exit_x, exit_y, exit_z, bidirectional]
+            if (state.data.teleports && state.data.teleports.length > 0) {
+                json += '  "teleports": [\n';
+                for (let i = 0; i < state.data.teleports.length; i++) {
+                    const tp = state.data.teleports[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [x(float), y(float), z(int), x(float), y(float), z(int), bidir(int)]
+                    json += '    [';
+                    json += formatFloat(tp[0]) + ', ' + formatFloat(tp[1]) + ', ' + formatInt(tp[2]) + ', ';
+                    json += formatFloat(tp[3]) + ', ' + formatFloat(tp[4]) + ', ' + formatInt(tp[5]) + ', ';
+                    json += formatInt(tp[6]) + ']';
+                }
+                json += '\n  ],\n';
+            }
+
+            // Travel portals - format: [x, y, [[from_map, to_map, exit_x, exit_y], ...]]
+            // Always include this section, even if empty
+            json += '  "travel_portals": ';
+            if (state.data.travel_portals && state.data.travel_portals.length > 0) {
+                json += '[\n';
+                for (let i = 0; i < state.data.travel_portals.length; i++) {
+                    const portal = state.data.travel_portals[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [x(float), y(float), connections]
+                    json += '    [' + formatFloat(portal[0]) + ', ' + formatFloat(portal[1]) + ', ';
+                    // Connections array
+                    const connections = portal[2] || [];
+                    if (connections.length > 0) {
+                        json += '[';
+                        for (let j = 0; j < connections.length; j++) {
+                            if (j > 0) json += ', ';
+                            // Format: [to_map(int), exit_x(float), exit_y(float)]
+                            json += '[' + formatInt(connections[j][0]) + ', ';
+                            json += formatFloat(connections[j][1]) + ', ' + formatFloat(connections[j][2]) + ']';
+                        }
+                        json += ']';
+                    } else {
+                        json += '[]';
+                    }
+                    json += ']';
+                }
+                json += '\n  ],\n';
+            } else {
+                json += '[],\n';
+            }
+
+            // NPC Travel - Always include this section, even if empty
+            json += '  "npc_travel": ';
+            if (state.data.npc_travel && state.data.npc_travel.length > 0) {
+                json += '[\n';
+                for (let i = 0; i < state.data.npc_travel.length; i++) {
+                    const npc = state.data.npc_travel[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [npcX, npcY, dialogid1, dialogid2, dialogid3, dialogid4, dialogid5, mapid, posX, posY]
+                    json += '    [' + formatFloat(npc[0]) + ', ' + formatFloat(npc[1]) + ', ' + formatInt(npc[2]) + ', ';
+                    json += formatInt(npc[3]) + ', ' + formatInt(npc[4]) + ', ' + formatInt(npc[5]) + ', ';
+                    json += formatInt(npc[6]) + ', ' + formatInt(npc[7]) + ', ' + formatFloat(npc[8]) + ', ' + formatFloat(npc[9]) + ']';
+                }
+                json += '\n  ],\n';
+            } else {
+                json += '[],\n';
+            }
+
+            // Enter Travel - Always include this section, even if empty
+            json += '  "enter_travel": ';
+            if (state.data.enter_travel && state.data.enter_travel.length > 0) {
+                json += '[\n';
+                for (let i = 0; i < state.data.enter_travel.length; i++) {
+                    const enter = state.data.enter_travel[i];
+                    if (i > 0) json += ',\n';
+                    // Format: [enterX, enterY, mapid, destX, destY]
+                    json += '    [' + formatFloat(enter[0]) + ', ' + formatFloat(enter[1]) + ', ' + formatInt(enter[2]) + ', ';
+                    json += formatFloat(enter[3]) + ', ' + formatFloat(enter[4]) + ']';
+                }
+                json += '\n  ],\n';
+            } else {
+                json += '[],\n';
+            }
+
+            // Stats
+            json += '  "stats": {\n';
+            json += '    "trapezoid_count": ' + (state.data.trapezoids?.length || 0) + ',\n';
+            json += '    "point_count": ' + (state.data.points?.length || 0) + ',\n';
+            json += '    "teleport_count": ' + (state.data.teleports?.length || 0) + ',\n';
+            json += '    "travel_portal_count": ' + (state.data.travel_portals?.length || 0) + ',\n';
+            json += '    "npc_travel_count": ' + (state.data.npc_travel?.length || 0) + ',\n';
+            json += '    "enter_travel_count": ' + (state.data.enter_travel?.length || 0) + '\n';
+            json += '  }';
+
+            // World map bounds (if available)
+            if (state.data.world_map_bounds) {
+                json += ',\n  "world_map_bounds": {\n';
+                json += '    "min_x": ' + formatFloat(state.data.world_map_bounds.min_x) + ',\n';
+                json += '    "min_y": ' + formatFloat(state.data.world_map_bounds.min_y) + ',\n';
+                json += '    "max_x": ' + formatFloat(state.data.world_map_bounds.max_x) + ',\n';
+                json += '    "max_y": ' + formatFloat(state.data.world_map_bounds.max_y) + '\n';
+                json += '  }';
+            }
+
+            // Game map boundaries (if available)
+            if (state.data.game_map_boundaries) {
+                json += ',\n  "game_map_boundaries": {\n';
+                json += '    "min_x": ' + formatFloat(state.data.game_map_boundaries.min_x) + ',\n';
+                json += '    "min_y": ' + formatFloat(state.data.game_map_boundaries.min_y) + ',\n';
+                json += '    "max_x": ' + formatFloat(state.data.game_map_boundaries.max_x) + ',\n';
+                json += '    "max_y": ' + formatFloat(state.data.game_map_boundaries.max_y) + '\n';
+                json += '  }';
+            }
+
+                json += '\n}\n';
+
+                const blob = new Blob([json], { type: 'application/json' });
+                const filename = state.currentFileName || 'pathfinding_data.json';
+
+                // Check if saveAs is available
+                if (typeof saveAs !== 'function') {
+                    throw new Error('FileSaver.js library not loaded');
+                }
+
+                saveAs(blob, filename);
+
+                state.hasUnsavedChanges = false;
+                updateSaveButton();
+                showStatus('File saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving JSON:', error);
+                console.error('Error stack:', error.stack);
+                showStatus(`Error saving file: ${error.message}`, 'error');
+                alert(`Failed to save file:\n${error.message}\n\nCheck console for details.`);
+            }
+        }
+
+        function markAsModified() {
+            state.hasUnsavedChanges = true;
+            updateSaveButton();
+            updateStats();
+        }
+
+        function updateSaveButton() {
+            const btn = document.getElementById('saveButton');
+            btn.disabled = !state.data;
+            btn.textContent = state.hasUnsavedChanges ? 'Save JSON File *' : 'Save JSON File';
+        }
+
+        function loadMapData() {
+            document.getElementById('noData').style.display = 'none';
+            document.getElementById('mapInfo').style.display = 'block';
+            document.getElementById('mapName').textContent = state.data.map_name || 'Unknown';
+            document.getElementById('mapContinent').textContent = state.data.continent !== undefined ? state.data.continent : '-';
+            document.getElementById('mapRegion').textContent = state.data.region !== undefined ? state.data.region : '-';
+            document.getElementById('mapType').textContent = state.data.type !== undefined ? state.data.type : '-';
+
+            // Initialize arrays if they don't exist
+            if (!state.data.points) state.data.points = [];
+            if (!state.data.vis_graph) state.data.vis_graph = [];
+            if (!state.data.teleports) state.data.teleports = [];
+            if (!state.data.travel_portals) state.data.travel_portals = [];
+            if (!state.data.npc_travel) state.data.npc_travel = [];
+            if (!state.data.enter_travel) state.data.enter_travel = [];
+
+            // Convert old format travel portals to new format if needed
+            if (state.data.travel_portals && state.data.travel_portals.length > 0) {
+                for (let i = 0; i < state.data.travel_portals.length; i++) {
+                    const portal = state.data.travel_portals[i];
+                    // Old format 1: [x, y]
+                    // Old format 2: [x, y, to_map_id, to_x, to_y]
+                    // Current format from export: [x, y, [map_id, x, y]]
+                    // New format: [x, y, [[map_id, x, y], ...]]
+                    if (portal.length === 2) {
+                        state.data.travel_portals[i] = [portal[0], portal[1], []];
+                    } else if (portal.length === 5) {
+                        // Convert old format 2 to new
+                        const connections = [];
+                        if (portal[2] > 0) {
+                            connections.push([portal[2], portal[3], portal[4]]);
+                        }
+                        state.data.travel_portals[i] = [portal[0], portal[1], connections];
+                    } else if (portal.length === 3 && Array.isArray(portal[2])) {
+                        // Check if portal[2] is a single connection [map_id, x, y] instead of array of connections
+                        if (portal[2].length === 3 && typeof portal[2][0] === 'number') {
+                            // Single connection format - wrap it in an array
+                            state.data.travel_portals[i] = [portal[0], portal[1], [portal[2]]];
+                        } else if (!Array.isArray(portal[2][0])) {
+                            // Ensure it's an array of arrays
+                            state.data.travel_portals[i] = [portal[0], portal[1], []];
+                        }
+                    } else if (!Array.isArray(portal[2])) {
+                        // Ensure connections is an array
+                        state.data.travel_portals[i] = [portal[0], portal[1], []];
+                    }
+                }
+            }
+
+            // Convert old format (map_id + alt_map_ids) to new format (map_ids array)
+            if (!state.data.map_ids) {
+                state.data.map_ids = [];
+                if (state.data.map_id) {
+                    state.data.map_ids.push(state.data.map_id);
+                }
+                if (state.data.alt_map_ids && state.data.alt_map_ids.length > 0) {
+                    state.data.map_ids.push(...state.data.alt_map_ids);
+                }
+                if (state.data.map_ids.length === 0) {
+                    state.data.map_ids = [0];
+                }
+            }
+
+            // Update display
+            document.getElementById('mapId').textContent = state.data.map_ids.join(', ');
+
+            // Enable edit buttons
+            document.getElementById('btnAdd').disabled = false;
+            document.getElementById('btnEdit').disabled = false;
+            document.getElementById('btnDelete').disabled = false;
+            document.getElementById('btnTestPath').disabled = false;
+            document.getElementById('btnClearPath').disabled = false;
+            document.getElementById('btnManageMapIds').disabled = false;
+
+            calculateBounds();
+            resetView();
+            updateStats();
+            draw();
+        }
+
+        function calculateBounds() {
+            if (!state.data || !state.data.trapezoids || state.data.trapezoids.length === 0) {
+                state.bounds = { minX: 0, minY: 0, maxX: 10000, maxY: 10000 };
+                return;
+            }
+
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
+
+            state.data.trapezoids.forEach(trap => {
+                for (let i = 2; i < 10; i += 2) {
+                    const x = trap[i];
+                    const y = trap[i + 1];
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            });
+
+            const padding = 500;
+            state.bounds = {
+                minX: minX - padding,
+                minY: minY - padding,
+                maxX: maxX + padding,
+                maxY: maxY + padding
+            };
+        }
+
+        function updateStats() {
+            const stats = state.data?.stats || {};
+            document.getElementById('trapCount').textContent = state.data?.trapezoids?.length || 0;
+            document.getElementById('pointCount').textContent = state.data?.points?.length || 0;
+            document.getElementById('teleportCount').textContent = state.data?.teleports?.length || 0;
+            document.getElementById('portalCount').textContent = state.data?.travel_portals?.length || 0;
+            document.getElementById('npcTravelCount').textContent = state.data?.npc_travel?.length || 0;
+            document.getElementById('enterTravelCount').textContent = state.data?.enter_travel?.length || 0;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.style.color = type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#4a90e2';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 3000);
+        }
+
+        // Coordinate transformation
+        function worldToScreen(worldX, worldY) {
+            const { minX, minY, maxX, maxY } = state.bounds;
+            const mapWidth = maxX - minX;
+            const mapHeight = maxY - minY;
+
+            // Normalize to [0, 1]
+            let x = (worldX - minX) / mapWidth;
+            let y = (worldY - minY) / mapHeight;
+
+            // Calculate scale to maintain aspect ratio
+            const mapAspect = mapWidth / mapHeight;
+            const canvasAspect = state.canvas.width / state.canvas.height;
+
+            let scale, offsetXCenter, offsetYCenter;
+            if (canvasAspect > mapAspect) {
+                // Canvas is wider than map - fit height, center horizontally
+                scale = state.canvas.height * state.zoom;
+                offsetXCenter = (state.canvas.width - scale * mapAspect) / 2;
+                offsetYCenter = 0;
+            } else {
+                // Canvas is taller than map - fit width, center vertically
+                scale = state.canvas.width * state.zoom;
+                offsetXCenter = 0;
+                offsetYCenter = (state.canvas.height - scale / mapAspect) / 2;
+            }
+
+            x = x * scale * (canvasAspect > mapAspect ? mapAspect : 1) + state.offsetX + offsetXCenter;
+            y = state.canvas.height - (y * scale * (canvasAspect > mapAspect ? 1 : 1 / mapAspect)) + state.offsetY - offsetYCenter;
+
+            return { x, y };
+        }
+
+        function screenToWorld(screenX, screenY) {
+            const { minX, minY, maxX, maxY } = state.bounds;
+            const mapWidth = maxX - minX;
+            const mapHeight = maxY - minY;
+
+            // Calculate scale to maintain aspect ratio
+            const mapAspect = mapWidth / mapHeight;
+            const canvasAspect = state.canvas.width / state.canvas.height;
+
+            let scale, offsetXCenter, offsetYCenter;
+            if (canvasAspect > mapAspect) {
+                // Canvas is wider than map - fit height, center horizontally
+                scale = state.canvas.height * state.zoom;
+                offsetXCenter = (state.canvas.width - scale * mapAspect) / 2;
+                offsetYCenter = 0;
+            } else {
+                // Canvas is taller than map - fit width, center vertically
+                scale = state.canvas.width * state.zoom;
+                offsetXCenter = 0;
+                offsetYCenter = (state.canvas.height - scale / mapAspect) / 2;
+            }
+
+            let x = (screenX - state.offsetX - offsetXCenter) / (scale * (canvasAspect > mapAspect ? mapAspect : 1));
+            let y = (state.canvas.height - screenY + state.offsetY - offsetYCenter) / (scale * (canvasAspect > mapAspect ? 1 : 1 / mapAspect));
+
+            x = x * mapWidth + minX;
+            y = y * mapHeight + minY;
+
+            return { x, y };
+        }
+
+        // Drawing functions
+        function draw() {
+            if (!state.data || !state.ctx || !state.canvas) return;
+
+            const ctx = state.ctx;
+            ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, state.canvas.width, state.canvas.height);
+
+            if (state.options.showGrid) drawGrid();
+            if (state.options.showTrapezoids) drawTrapezoids();
+            if (state.options.showVisGraph) drawVisibilityGraph();
+            if (state.options.showTeleports) drawTeleports();
+            if (state.options.showPortals) drawTravelPortals();
+            if (state.options.showNpcTravel) drawNpcTravel();
+            if (state.options.showEnterTravel) drawEnterTravel();
+            if (state.options.showPoints) drawPoints();
+
+            // Draw temporary elements during placement
+            if (state.isPlacing && state.tempStart) {
+                drawTempElement();
+            }
+
+            // Draw pathfinding test
+            if (state.isTestingPath) {
+                drawPathTest();
+            }
+        }
+
+        function drawGrid() {
+            const ctx = state.ctx;
+            const { minX, minY, maxX, maxY } = state.bounds;
+            const gridSize = 1000;
+
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 1;
+
+            for (let x = Math.floor(minX / gridSize) * gridSize; x <= maxX; x += gridSize) {
+                const start = worldToScreen(x, minY);
+                const end = worldToScreen(x, maxY);
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            }
+
+            for (let y = Math.floor(minY / gridSize) * gridSize; y <= maxY; y += gridSize) {
+                const start = worldToScreen(minX, y);
+                const end = worldToScreen(maxX, y);
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            }
+        }
+
+        function drawTrapezoids() {
+            if (!state.data.trapezoids) return;
+
+            const ctx = state.ctx;
+            state.data.trapezoids.forEach(trap => {
+                const layer = trap[1];
+                const points = [];
+                for (let i = 2; i < 10; i += 2) {
+                    points.push(worldToScreen(trap[i], trap[i + 1]));
+                }
+
+                const color = layer > 0 ? '#8B1A1A' : '#505050';
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function drawPoints() {
+            if (!state.data.points) return;
+
+            const ctx = state.ctx;
+            state.data.points.forEach((point, idx) => {
+                const pos = worldToScreen(point[1], point[2]);
+
+                const isSelected = state.selectedElement?.type === 'point' && state.selectedElement.index === idx;
+                const isInMultiSelection = state.selectedPoints.has(idx);
+
+                // Couleur différente si sélectionné pour suppression multiple
+                if (isInMultiSelection) {
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                } else {
+                    ctx.fillStyle = isSelected ? '#ffff00' : '#4a90e2';
+                    ctx.strokeStyle = isSelected ? '#ffffff' : '#000000';
+                    ctx.lineWidth = isSelected ? 2 : 1;
+                }
+
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, state.options.pointSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (isSelected || isInMultiSelection) {
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawVisibilityGraph() {
+            if (!state.data.vis_graph || !state.data.points) return;
+
+            const ctx = state.ctx;
+            ctx.strokeStyle = 'rgba(255, 200, 0, 0.2)';
+            ctx.lineWidth = state.options.lineThickness;
+
+            state.data.vis_graph.forEach((edges, fromIdx) => {
+                if (fromIdx >= state.data.points.length) return;
+                const fromPoint = state.data.points[fromIdx];
+                if (!fromPoint) return; // Skip if point doesn't exist
+                const fromPos = worldToScreen(fromPoint[1], fromPoint[2]);
+
+                edges.forEach(edge => {
+                    // Validate edge structure
+                    if (!edge || edge.length < 2) return;
+
+                    const toIdx = edge[0];
+                    if (toIdx === null || toIdx === undefined || toIdx < 0 || toIdx >= state.data.points.length) return;
+
+                    const toPoint = state.data.points[toIdx];
+                    if (!toPoint) return; // Skip if target point doesn't exist
+
+                    const toPos = worldToScreen(toPoint[1], toPoint[2]);
+
+                    ctx.beginPath();
+                    ctx.moveTo(fromPos.x, fromPos.y);
+                    ctx.lineTo(toPos.x, toPos.y);
+                    ctx.stroke();
+                });
+            });
+        }
+
+        function drawTeleports() {
+            if (!state.data.teleports) return;
+
+            const ctx = state.ctx;
+            state.data.teleports.forEach((tp, idx) => {
+                const enterPos = worldToScreen(tp[0], tp[1]);
+                const exitPos = worldToScreen(tp[3], tp[4]);
+
+                const isSelected = state.selectedElement?.type === 'teleport' && state.selectedElement.index === idx;
+                const color = isSelected ? '#ffff00' : '#ff00ff';
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(enterPos.x, enterPos.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(exitPos.x, exitPos.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(enterPos.x, enterPos.y);
+                ctx.lineTo(exitPos.x, exitPos.y);
+                ctx.stroke();
+
+                // Draw label with coordinates at entrance
+                ctx.fillStyle = '#ff00ff';
+                ctx.font = '10px monospace';
+                const enterLabel = `${Math.round(tp[0])},${Math.round(tp[1])}`;
+                ctx.fillText(enterLabel, enterPos.x + 10, enterPos.y - 5);
+
+                // Draw label with coordinates at exit
+                const exitLabel = `${Math.round(tp[3])},${Math.round(tp[4])}`;
+                ctx.fillText(exitLabel, exitPos.x + 10, exitPos.y - 5);
+            });
+        }
+
+        function drawTravelPortals() {
+            if (!state.data.travel_portals) return;
+
+            const ctx = state.ctx;
+            state.data.travel_portals.forEach((portal, idx) => {
+                const pos = worldToScreen(portal[0], portal[1]);
+                const size = state.options.portalSize / 30;
+
+                const isSelected = state.selectedElement?.type === 'portal' && state.selectedElement.index === idx;
+                const connections = portal[2] || [];
+                const hasConnections = connections.length > 0;
+
+                // Portals with connections are cyan, without are orange
+                const fillColor = isSelected ? '#ffff00' : (hasConnections ? '#00ffff' : '#ff8800');
+                const strokeColor = isSelected ? '#ffaa00' : (hasConnections ? '#00cccc' : '#cc6600');
+
+                ctx.fillStyle = fillColor;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+
+                // Draw diamond shape
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y + size);
+                ctx.lineTo(pos.x + size, pos.y);
+                ctx.lineTo(pos.x, pos.y - size);
+                ctx.lineTo(pos.x - size, pos.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw connections
+                if (hasConnections) {
+                    connections.forEach((conn, connIdx) => {
+                        // Format: [toMap, spawnX, spawnY]
+                        const [toMap, spawnX, spawnY] = conn;
+                        const exitPos = worldToScreen(spawnX, spawnY);
+
+                        // Draw dashed line to exit position
+                        ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([3, 3]);
+                        ctx.beginPath();
+                        ctx.moveTo(pos.x, pos.y);
+                        ctx.lineTo(exitPos.x, exitPos.y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        // Draw exit point marker (smaller diamond)
+                        const exitSize = size * 0.6;
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                        ctx.strokeStyle = '#00cccc';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(exitPos.x, exitPos.y + exitSize);
+                        ctx.lineTo(exitPos.x + exitSize, exitPos.y);
+                        ctx.lineTo(exitPos.x, exitPos.y - exitSize);
+                        ctx.lineTo(exitPos.x - exitSize, exitPos.y);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Draw connection label
+                        ctx.fillStyle = '#00ffff';
+                        ctx.font = '10px monospace';
+                        const currentMapId = getCurrentMapId();
+                        const label = `${currentMapId}→${toMap}`;
+                        ctx.fillText(label, pos.x + size + 5, pos.y - 5 - (connIdx * 12));
+                    });
+                }
+            });
+        }
+
+        function drawNpcTravel() {
+            if (!state.data.npc_travel) return;
+
+            const ctx = state.ctx;
+            state.data.npc_travel.forEach((npc, idx) => {
+                // Format: [npcX, npcY, dialogid1, dialogid2, dialogid3, dialogid4, dialogid5, mapid, posX, posY]
+                const npcPos = worldToScreen(npc[0], npc[1]);
+                const destPos = worldToScreen(npc[8], npc[9]);
+                const size = state.options.portalSize / 30;
+
+                const isSelected = state.selectedElement?.type === 'npctravel' && state.selectedElement.index === idx;
+
+                // NPC position (hexagon) - green color
+                const fillColor = isSelected ? '#ffff00' : '#00ff00';
+                const strokeColor = isSelected ? '#ffaa00' : '#00cc00';
+
+                ctx.fillStyle = fillColor;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+
+                // Draw hexagon for NPC position
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    const x = npcPos.x + size * Math.cos(angle);
+                    const y = npcPos.y + size * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw line to destination if mapid is not 0
+                const mapId = npc[7];
+                if (mapId !== 0) {
+                    ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(npcPos.x, npcPos.y);
+                    ctx.lineTo(destPos.x, destPos.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Draw destination marker (smaller hexagon)
+                    const destSize = size * 0.6;
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                    ctx.strokeStyle = '#00cc00';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i;
+                        const x = destPos.x + destSize * Math.cos(angle);
+                        const y = destPos.y + destSize * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw label
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = '10px monospace';
+                    ctx.fillText(`NPC→${mapId}`, npcPos.x + size + 5, npcPos.y - 5);
+                }
+            });
+        }
+
+        function drawEnterTravel() {
+            if (!state.data.enter_travel) return;
+
+            const ctx = state.ctx;
+
+            state.data.enter_travel.forEach((enter, idx) => {
+                // Format: [enterX, enterY, mapid, destX, destY]
+                const enterPos = worldToScreen(enter[0], enter[1]);
+                const mapId = enter[2];
+                const destPos = worldToScreen(enter[3], enter[4]);
+                const size = state.options.portalSize / 30;
+
+                const isSelected = state.selectedElement?.type === 'entertravel' && state.selectedElement.index === idx;
+
+                // Square shape - purple color
+                const fillColor = isSelected ? '#ffff00' : '#ff00ff';
+                const strokeColor = isSelected ? '#ffaa00' : '#cc00cc';
+
+                ctx.fillStyle = fillColor;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+
+                // Draw square for enter position
+                ctx.beginPath();
+                ctx.rect(enterPos.x - size, enterPos.y - size, size * 2, size * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw line to destination if mapid is not 0
+                if (mapId !== 0) {
+                    ctx.strokeStyle = 'rgba(255, 0, 255, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(enterPos.x, enterPos.y);
+                    ctx.lineTo(destPos.x, destPos.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Draw destination marker (smaller square)
+                    const destSize = size * 0.6;
+                    ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+                    ctx.strokeStyle = '#cc00cc';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.rect(destPos.x - destSize, destPos.y - destSize, destSize * 2, destSize * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw label
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.font = '10px monospace';
+                    ctx.fillText(`Enter→${mapId}`, enterPos.x + size + 5, enterPos.y - 5);
+                }
+            });
+        }
+
+        function drawTempElement() {
+            const ctx = state.ctx;
+            const mousePos = state.lastMouseWorld;
+
+            if (!mousePos) return;
+
+            if (state.editAction === 'add' && state.elementType === 'teleports' && state.tempStart) {
+                const startPos = worldToScreen(state.tempStart.x, state.tempStart.y);
+                const endPos = worldToScreen(mousePos.x, mousePos.y);
+
+                ctx.strokeStyle = '#ff00ff';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(startPos.x, startPos.y);
+                ctx.lineTo(endPos.x, endPos.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // Mouse handling
+        function handleMouseDown(e) {
+            if (e.button === 2 || e.button === 1) {
+                state.isDragging = true;
+                state.lastX = e.clientX;
+                state.lastY = e.clientY;
+                e.preventDefault();
+                return;
+            }
+
+            if (e.button === 0) {
+                const rect = state.canvas.getBoundingClientRect();
+                const screenX = e.clientX - rect.left;
+                const screenY = e.clientY - rect.top;
+                const worldPos = screenToWorld(screenX, screenY);
+
+                // Mode sélection multiple avec Shift+Drag
+                if (state.editAction === 'delete' && e.shiftKey) {
+                    console.log('Starting selection mode at', screenX, screenY);
+                    state.selectionMode = true;
+                    state.selectionStart = { x: screenX, y: screenY };
+                    state.selectionRect = document.createElement('div');
+                    state.selectionRect.className = 'selection-rectangle';
+                    // Position relative à la page entière
+                    const canvasRect = rect;
+                    state.selectionRect.style.left = (canvasRect.left + screenX) + 'px';
+                    state.selectionRect.style.top = (canvasRect.top + screenY) + 'px';
+                    state.selectionRect.style.width = '0px';
+                    state.selectionRect.style.height = '0px';
+                    document.body.appendChild(state.selectionRect);
+                    console.log('Selection rectangle created');
+                    return;
+                }
+
+                if (state.isPickingExitPosition) {
+                    handleExitPositionPick(worldPos);
+                } else if (state.isTestingPath) {
+                    handlePathTestClick(worldPos);
+                } else if (state.editAction) {
+                    handleEditClick(worldPos, e);
+                }
+            }
+        }
+
+        function handleMouseMove(e) {
+            const rect = state.canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            const worldPos = screenToWorld(screenX, screenY);
+            state.lastMouseWorld = worldPos;
+
+            document.getElementById('coordsDisplay').textContent =
+                `World: (${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)})`;
+
+            // Mode sélection multiple
+            if (state.selectionMode && state.selectionStart) {
+                const startX = Math.min(state.selectionStart.x, screenX);
+                const startY = Math.min(state.selectionStart.y, screenY);
+                const width = Math.abs(screenX - state.selectionStart.x);
+                const height = Math.abs(screenY - state.selectionStart.y);
+
+                // Position relative à la page entière
+                const canvasRect = rect;
+                state.selectionRect.style.left = (canvasRect.left + startX) + 'px';
+                state.selectionRect.style.top = (canvasRect.top + startY) + 'px';
+                state.selectionRect.style.width = width + 'px';
+                state.selectionRect.style.height = height + 'px';
+
+                // Mettre à jour la sélection des points
+                updateSelection(startX, startY, width, height);
+                return;
+            }
+
+            if (state.isDragging) {
+                const dx = e.clientX - state.lastX;
+                const dy = e.clientY - state.lastY;
+                state.offsetX += dx;
+                state.offsetY += dy;
+                state.lastX = e.clientX;
+                state.lastY = e.clientY;
+                draw();
+            }
+
+            if (state.isPlacing && state.tempStart) {
+                draw();
+            }
+        }
+
+        function handleMouseUp(e) {
+            // Mode sélection multiple terminé
+            if (state.selectionMode) {
+                console.log('handleMouseUp - selectionMode active, selected points:', state.selectedPoints.size);
+                state.selectionMode = false;
+                state.selectionStart = null;
+
+                if (state.selectionRect) {
+                    state.selectionRect.remove();
+                    state.selectionRect = null;
+                }
+
+                // Afficher dialogue de confirmation si des points sont sélectionnés
+                if (state.selectedPoints.size > 0) {
+                    const count = state.selectedPoints.size;
+                    console.log('Asking confirmation to delete', count, 'points');
+                    if (confirm(`Delete ${count} selected point(s)?`)) {
+                        deleteSelectedPoints();
+                    } else {
+                        state.selectedPoints.clear();
+                        draw();
+                    }
+                } else {
+                    console.log('No points selected');
+                }
+                return;
+            }
+
+            state.isDragging = false;
+        }
+
+        function handleMouseLeave(e) {
+            state.isDragging = false;
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const oldZoom = state.zoom;
+            state.zoom = Math.max(0.1, Math.min(10, state.zoom * delta));
+
+            const rect = state.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomFactor = state.zoom / oldZoom;
+            state.offsetX = mouseX * (1 - zoomFactor) + state.offsetX * zoomFactor;
+            state.offsetY = mouseY * (1 - zoomFactor) + state.offsetY * zoomFactor;
+
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+            draw();
+        }
+
+        state.canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Edit mode handlers
+        function setEditAction(action) {
+            if (state.editAction === action) {
+                // Deactivate current mode
+                state.editAction = null;
+                state.selectedElement = null;
+                state.isPlacing = false;
+                state.tempStart = null;
+
+                // Reset all button styles
+                ['btnAdd', 'btnEdit', 'btnDelete'].forEach(id => {
+                    const btn = document.getElementById(id);
+                    btn.style.opacity = '';
+                    btn.style.fontWeight = '';
+                });
+
+                updateModeIndicator();
+                draw();
+                return;
+            }
+
+            state.editAction = action;
+            state.selectedElement = null;
+            state.isPlacing = false;
+            state.tempStart = null;
+
+            // Reset all button styles first
+            ['btnAdd', 'btnEdit', 'btnDelete'].forEach(id => {
+                const btn = document.getElementById(id);
+                btn.style.opacity = '';
+                btn.style.fontWeight = '';
+            });
+
+            // Highlight active button
+            const btnMap = {
+                'add': 'btnAdd',
+                'edit': 'btnEdit',
+                'delete': 'btnDelete'
+            };
+            const btnId = btnMap[action];
+            if (btnId) {
+                const btn = document.getElementById(btnId);
+                btn.style.opacity = '1';
+                btn.style.fontWeight = 'bold';
+            }
+
+            updateModeIndicator();
+            draw();
+        }
+
+        function setElementType(type) {
+            state.elementType = type;
+            updateModeIndicator();
+            draw();
+        }
+
+        function updateModeIndicator() {
+            const indicator = document.getElementById('modeIndicator');
+            if (state.isTestingPath) {
+                indicator.className = 'mode-indicator pathfinding';
+                indicator.textContent = 'PATH TEST MODE';
+            } else if (state.editAction) {
+                indicator.className = 'mode-indicator edit';
+                const actionText = state.editAction.toUpperCase();
+                const typeText = state.elementType.toUpperCase().replace('VISGRAPH', 'VIS GRAPH');
+                indicator.textContent = `${actionText} MODE: ${typeText}`;
+            } else {
+                indicator.className = 'mode-indicator viewing';
+                indicator.textContent = 'VIEWING MODE';
+            }
+        }
+
+        function handleEditClick(worldPos, event) {
+            if (!state.editAction) return;
+
+            switch (state.editAction) {
+                case 'add':
+                    handleAddElement(worldPos, event);
+                    break;
+                case 'edit':
+                    handleEditElement(worldPos, event);
+                    break;
+                case 'delete':
+                    handleDeleteElement(worldPos, event);
+                    break;
+            }
+        }
+
+        function handleAddElement(worldPos, event) {
+            switch (state.elementType) {
+                case 'points':
+                    addPoint(worldPos);
+                    break;
+                case 'visgraph':
+                    handleVisGraphAdd(worldPos);
+                    break;
+                case 'teleports':
+                    handleTeleportAdd(worldPos);
+                    break;
+                case 'portals':
+                    addPortal(worldPos);
+                    break;
+                case 'npctravel':
+                    addNpcTravel(worldPos);
+                    break;
+                case 'entertravel':
+                    addEnterTravel(worldPos);
+                    break;
+            }
+            draw();
+        }
+
+        function handleEditElement(worldPos, event) {
+            switch (state.elementType) {
+                case 'points':
+                    const clickedPoint = findNearestElement('point', worldPos, 20);
+                    if (clickedPoint !== null) {
+                        state.selectedElement = { type: 'point', index: clickedPoint };
+                        showPointEditor(clickedPoint);
+                    }
+                    break;
+                case 'visgraph':
+                    // Vis graph editing doesn't use edit mode, only add to connect/disconnect
+                    showStatus('Use ADD mode to connect/disconnect vis graph edges', 'warning');
+                    break;
+                case 'teleports':
+                    const clickedTeleport = findNearestElement('teleport', worldPos, 20);
+                    if (clickedTeleport !== null) {
+                        state.selectedElement = { type: 'teleport', index: clickedTeleport };
+                        showTeleportEditor(clickedTeleport);
+                    }
+                    break;
+                case 'portals':
+                    const clickedPortal = findNearestElement('portal', worldPos, 20);
+                    if (clickedPortal !== null) {
+                        state.selectedElement = { type: 'portal', index: clickedPortal };
+                        showPortalEditor(clickedPortal);
+                    }
+                    break;
+                case 'npctravel':
+                    const clickedNpc = findNearestElement('npctravel', worldPos, 20);
+                    if (clickedNpc !== null) {
+                        state.selectedElement = { type: 'npctravel', index: clickedNpc };
+                        showNpcTravelEditor(clickedNpc);
+                    }
+                    break;
+                case 'entertravel':
+                    const clickedEnter = findNearestElement('entertravel', worldPos, 20);
+                    if (clickedEnter !== null) {
+                        state.selectedElement = { type: 'entertravel', index: clickedEnter };
+                        showEnterTravelEditor(clickedEnter);
+                    }
+                    break;
+            }
+            draw();
+        }
+
+        function handleDeleteElement(worldPos, event) {
+            switch (state.elementType) {
+                case 'points':
+                    const clickedPoint = findNearestElement('point', worldPos, 20);
+                    if (clickedPoint !== null && confirm(`Delete point ${clickedPoint}?`)) {
+                        deletePoint(clickedPoint);
+                    }
+                    break;
+                case 'visgraph':
+                    showStatus('Use ADD mode to connect/disconnect vis graph edges', 'warning');
+                    break;
+                case 'teleports':
+                    const clickedTeleport = findNearestElement('teleport', worldPos, 20);
+                    if (clickedTeleport !== null && confirm('Delete this teleport?')) {
+                        deleteTeleport(clickedTeleport);
+                    }
+                    break;
+                case 'portals':
+                    const clickedPortal = findNearestElement('portal', worldPos, 20);
+                    if (clickedPortal !== null && confirm('Delete this travel portal?')) {
+                        deletePortal(clickedPortal);
+                    }
+                    break;
+                case 'npctravel':
+                    const clickedNpc = findNearestElement('npctravel', worldPos, 20);
+                    if (clickedNpc !== null && confirm('Delete this NPC travel?')) {
+                        deleteNpcTravel(clickedNpc);
+                    }
+                    break;
+                case 'entertravel':
+                    const clickedEnter = findNearestElement('entertravel', worldPos, 20);
+                    if (clickedEnter !== null && confirm('Delete this enter travel?')) {
+                        deleteEnterTravel(clickedEnter);
+                    }
+                    break;
+            }
+            draw();
+        }
+
+        function handleVisGraphAdd(worldPos) {
+            const clickedPoint = findNearestElement('point', worldPos, 20);
+
+            if (clickedPoint !== null) {
+                if (!state.selectedElement) {
+                    state.selectedElement = { type: 'point', index: clickedPoint };
+                    showStatus('Click another point to connect/disconnect', 'info');
+                } else {
+                    toggleVisGraphConnection(state.selectedElement.index, clickedPoint);
+                    state.selectedElement = null;
+                    showStatus('Visibility graph updated', 'success');
+                }
+            }
+        }
+
+        function handleTeleportAdd(worldPos) {
+            if (!state.isPlacing) {
+                state.isPlacing = true;
+                state.tempStart = worldPos;
+                showStatus('Click to set exit position', 'info');
+            } else {
+                addTeleport(state.tempStart, worldPos);
+                state.isPlacing = false;
+                state.tempStart = null;
+            }
+        }
+
+        // Element manipulation functions
+        function findNearestElement(type, worldPos, maxDistance) {
+            let nearest = null;
+            let minDist = maxDistance;
+
+            if (type === 'point' && state.data.points) {
+                state.data.points.forEach((point, idx) => {
+                    const dx = point[1] - worldPos.x;
+                    const dy = point[2] - worldPos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = idx;
+                    }
+                });
+            } else if (type === 'teleport' && state.data.teleports) {
+                state.data.teleports.forEach((tp, idx) => {
+                    const dx1 = tp[0] - worldPos.x;
+                    const dy1 = tp[1] - worldPos.y;
+                    const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+                    const dx2 = tp[3] - worldPos.x;
+                    const dy2 = tp[4] - worldPos.y;
+                    const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+                    const dist = Math.min(dist1, dist2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = idx;
+                    }
+                });
+            } else if (type === 'portal' && state.data.travel_portals) {
+                state.data.travel_portals.forEach((portal, idx) => {
+                    const dx = portal[0] - worldPos.x;
+                    const dy = portal[1] - worldPos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = idx;
+                    }
+                });
+            } else if (type === 'npctravel' && state.data.npc_travel) {
+                state.data.npc_travel.forEach((npc, idx) => {
+                    const dx = npc[0] - worldPos.x;
+                    const dy = npc[1] - worldPos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = idx;
+                    }
+                });
+            } else if (type === 'entertravel' && state.data.enter_travel) {
+                state.data.enter_travel.forEach((enter, idx) => {
+                    const dx = enter[0] - worldPos.x;
+                    const dy = enter[1] - worldPos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = idx;
+                    }
+                });
+            }
+
+            return nearest;
+        }
+
+        function addPoint(worldPos) {
+            const newId = state.data.points.length;
+            state.data.points.push([newId, worldPos.x, worldPos.y, 0]);
+            state.data.vis_graph.push([]);
+            markAsModified();
+            showStatus('Point added', 'success');
+        }
+
+        function deletePoint(index) {
+            // Remove from points array
+            state.data.points.splice(index, 1);
+
+            // Remove from vis graph
+            state.data.vis_graph.splice(index, 1);
+
+            // Update all vis graph references
+            state.data.vis_graph.forEach(edges => {
+                for (let i = edges.length - 1; i >= 0; i--) {
+                    if (edges[i][0] === index) {
+                        edges.splice(i, 1);
+                    } else if (edges[i][0] > index) {
+                        edges[i][0]--;
+                    }
+                }
+            });
+
+            // Reindex point IDs
+            state.data.points.forEach((point, idx) => {
+                point[0] = idx;
+            });
+
+            markAsModified();
+            showStatus('Point deleted', 'success');
+        }
+
+        function toggleVisGraphConnection(fromIdx, toIdx) {
+            if (fromIdx === toIdx) return;
+
+            // Ensure vis_graph arrays exist
+            while (state.data.vis_graph.length <= Math.max(fromIdx, toIdx)) {
+                state.data.vis_graph.push([]);
+            }
+
+            const fromPoint = state.data.points[fromIdx];
+            const toPoint = state.data.points[toIdx];
+            const dx = toPoint[1] - fromPoint[1];
+            const dy = toPoint[2] - fromPoint[2];
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Check if connection exists
+            const fromEdges = state.data.vis_graph[fromIdx];
+            const toEdges = state.data.vis_graph[toIdx];
+
+            const fromIndex = fromEdges.findIndex(e => e[0] === toIdx);
+            const toIndex = toEdges.findIndex(e => e[0] === fromIdx);
+
+            if (fromIndex >= 0) {
+                // Remove bidirectional connection
+                fromEdges.splice(fromIndex, 1);
+                if (toIndex >= 0) {
+                    toEdges.splice(toIndex, 1);
+                }
+                showStatus('Connection removed', 'success');
+            } else {
+                // Add bidirectional connection
+                fromEdges.push([toIdx, distance]);
+                toEdges.push([fromIdx, distance]);
+                showStatus('Connection added', 'success');
+            }
+
+            markAsModified();
+        }
+
+        function addTeleport(enter, exit) {
+            // Find or create points at teleport entrance and exit
+            const enterPointIndex = findOrCreatePoint(enter.x, enter.y);
+            const exitPointIndex = findOrCreatePoint(exit.x, exit.y);
+
+            // Calculate distance between entrance and exit
+            const dx = exit.x - enter.x;
+            const dy = exit.y - enter.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Add bidirectional connection in visibility graph between entrance and exit
+            addVisGraphEdge(enterPointIndex, exitPointIndex, distance);
+            addVisGraphEdge(exitPointIndex, enterPointIndex, distance);
+
+            // Add the teleport
+            state.data.teleports.push([enter.x, enter.y, 0, exit.x, exit.y, 0, 1]);
+
+            markAsModified();
+            updateStats();
+            showStatus('Teleport added with visibility graph connections', 'success');
+        }
+
+        function deleteTeleport(index) {
+            const teleport = state.data.teleports[index];
+            // Format: [enterX, enterY, enterZ, exitX, exitY, exitZ, type]
+            const [enterX, enterY, , exitX, exitY] = teleport;
+
+            // Find points at teleport entrance and exit
+            const enterPointIndex = findNearestPoint(enterX, enterY, 50);
+            const exitPointIndex = findNearestPoint(exitX, exitY, 50);
+
+            // Remove the direct visibility graph connection between entrance and exit
+            if (enterPointIndex !== null && exitPointIndex !== null) {
+                removeVisGraphEdge(enterPointIndex, exitPointIndex);
+                removeVisGraphEdge(exitPointIndex, enterPointIndex);
+                console.log(`Removed vis graph edges between points ${enterPointIndex} and ${exitPointIndex}`);
+            }
+
+            // Remove the teleport
+            state.data.teleports.splice(index, 1);
+
+            markAsModified();
+            updateStats();
+            showStatus('Teleport deleted with visibility graph cleanup', 'success');
+        }
+
+        function addPortal(worldPos) {
+            // Create portal with new format: [x, y, []]
+            state.data.travel_portals.push([worldPos.x, worldPos.y, []]);
+            markAsModified();
+            showStatus('Travel portal added', 'success');
+        }
+
+        function deletePortal(index) {
+            state.data.travel_portals.splice(index, 1);
+            markAsModified();
+            showStatus('Travel portal deleted', 'success');
+        }
+
+        function addNpcTravel(worldPos) {
+            // Format: [npcX, npcY, dialogid1, dialogid2, dialogid3, dialogid4, dialogid5, mapid, posX, posY]
+            state.data.npc_travel.push([worldPos.x, worldPos.y, 0, 0, 0, 0, 0, 0, 0.0, 0.0]);
+            markAsModified();
+            showStatus('NPC travel added', 'success');
+        }
+
+        function deleteNpcTravel(index) {
+            state.data.npc_travel.splice(index, 1);
+            markAsModified();
+            showStatus('NPC travel deleted', 'success');
+        }
+
+        function addEnterTravel(worldPos) {
+            // Format: [enterX, enterY, mapid, destX, destY]
+            state.data.enter_travel.push([worldPos.x, worldPos.y, 0, 0.0, 0.0]);
+            markAsModified();
+            showStatus('Enter travel added', 'success');
+        }
+
+        function deleteEnterTravel(index) {
+            state.data.enter_travel.splice(index, 1);
+            markAsModified();
+            showStatus('Enter travel deleted', 'success');
+        }
+
+        // Editor dialogs
+        function showPointEditor(index) {
+            const point = state.data.points[index];
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel">
+                    <h3>Edit Point #${index}</h3>
+                    <div class="form-group">
+                        <label>X Position:</label>
+                        <input type="number" id="editPointX" value="${point[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Y Position:</label>
+                        <input type="number" id="editPointY" value="${point[2].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Layer:</label>
+                        <input type="number" id="editPointLayer" value="${point[3]}" min="0" max="10">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="savePointEdit(${index})" class="success">Save</button>
+                        <button onclick="closeEditor()" class="secondary">Cancel</button>
+                        <button onclick="deletePoint(${index}); closeEditor();" class="danger">Delete</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+        }
+
+        function showTeleportEditor(index) {
+            const tp = state.data.teleports[index];
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel">
+                    <h3>Edit Teleport #${index}</h3>
+                    <h4>Enter Position</h4>
+                    <div class="form-group">
+                        <label>X:</label>
+                        <input type="number" id="editTpEnterX" value="${tp[0].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Y:</label>
+                        <input type="number" id="editTpEnterY" value="${tp[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Z:</label>
+                        <input type="number" id="editTpEnterZ" value="${tp[2]}" min="0">
+                    </div>
+                    <h4>Exit Position</h4>
+                    <div class="form-group">
+                        <label>X:</label>
+                        <input type="number" id="editTpExitX" value="${tp[3].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Y:</label>
+                        <input type="number" id="editTpExitY" value="${tp[4].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Z:</label>
+                        <input type="number" id="editTpExitZ" value="${tp[5]}" min="0">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="saveTeleportEdit(${index})" class="success">Save</button>
+                        <button onclick="closeEditor()" class="secondary">Cancel</button>
+                        <button onclick="deleteTeleport(${index}); closeEditor();" class="danger">Delete</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+        }
+
+        function showPortalEditor(index) {
+            const portal = state.data.travel_portals[index];
+            const connections = portal[2] || [];
+
+            const connectionsHtml = connections.map((conn, i) => `
+                <div style="border: 1px solid #444; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <strong>Connection ${i + 1}</strong>
+                        <button onclick="removePortalConnection(${index}, ${i})" class="danger" style="padding: 4px 8px;">Remove</button>
+                    </div>
+                    <div class="form-group">
+                        <label>To Map ID:</label>
+                        <input type="number" class="connToMap" data-index="${i}" value="${conn[0]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Pick Spawn Position:</label>
+                        <button onclick="pickExitPosition(${i})" class="secondary" style="width: 100%; margin-bottom: 5px;">Pick on Map</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn X:</label>
+                        <input type="number" class="connExitX" data-index="${i}" value="${conn[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn Y:</label>
+                        <input type="number" class="connExitY" data-index="${i}" value="${conn[2].toFixed(3)}" step="0.1">
+                    </div>
+                </div>
+            `).join('');
+
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel" style="max-height: 80vh; overflow-y: auto;">
+                    <h3>Edit Travel Portal #${index}</h3>
+                    <h4>Portal Position</h4>
+                    <div class="form-group">
+                        <label>X Position:</label>
+                        <input type="number" id="editPortalX" value="${portal[0].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Y Position:</label>
+                        <input type="number" id="editPortalY" value="${portal[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <h4>Connections</h4>
+                    <div id="portalConnections">
+                        ${connectionsHtml || '<p style="color: #888;">No connections defined</p>'}
+                    </div>
+                    <button onclick="addPortalConnection()" class="success" style="width: 100%; margin: 10px 0;">Add Connection</button>
+                    <div class="button-group">
+                        <button onclick="savePortalEdit(${index})" class="success">Save</button>
+                        <button onclick="closeEditor()" class="secondary">Cancel</button>
+                        <button onclick="deletePortal(${index}); closeEditor();" class="danger">Delete</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+
+            // Store portal index for add connection function
+            window.currentPortalIndex = index;
+        }
+
+        function showDialog(html) {
+            const container = document.createElement('div');
+            container.id = 'editorDialog';
+            container.innerHTML = html;
+            document.body.appendChild(container);
+        }
+
+        function closeEditor() {
+            const dialog = document.getElementById('editorDialog');
+            if (dialog) {
+                dialog.remove();
+            }
+            state.selectedElement = null;
+            draw();
+        }
+
+        window.closeEditor = closeEditor;
+
+        window.savePointEdit = function(index) {
+            const x = parseFloat(document.getElementById('editPointX').value);
+            const y = parseFloat(document.getElementById('editPointY').value);
+            const layer = parseInt(document.getElementById('editPointLayer').value);
+
+            state.data.points[index][1] = x;
+            state.data.points[index][2] = y;
+            state.data.points[index][3] = layer;
+
+            // Recalculate vis graph distances
+            state.data.vis_graph[index].forEach(edge => {
+                const toPoint = state.data.points[edge[0]];
+                const dx = toPoint[1] - x;
+                const dy = toPoint[2] - y;
+                edge[1] = Math.sqrt(dx * dx + dy * dy);
+            });
+
+            state.data.vis_graph.forEach((edges, fromIdx) => {
+                edges.forEach(edge => {
+                    if (edge[0] === index) {
+                        const fromPoint = state.data.points[fromIdx];
+                        const dx = x - fromPoint[1];
+                        const dy = y - fromPoint[2];
+                        edge[1] = Math.sqrt(dx * dx + dy * dy);
+                    }
+                });
+            });
+
+            markAsModified();
+            closeEditor();
+            showStatus('Point updated', 'success');
+        };
+
+        window.saveTeleportEdit = function(index) {
+            state.data.teleports[index] = [
+                parseFloat(document.getElementById('editTpEnterX').value),
+                parseFloat(document.getElementById('editTpEnterY').value),
+                parseInt(document.getElementById('editTpEnterZ').value),
+                parseFloat(document.getElementById('editTpExitX').value),
+                parseFloat(document.getElementById('editTpExitY').value),
+                parseInt(document.getElementById('editTpExitZ').value),
+                1
+            ];
+            markAsModified();
+            closeEditor();
+            showStatus('Teleport updated', 'success');
+        };
+
+        window.savePortalEdit = function(index) {
+            const connections = [];
+
+            // Gather all connections from the form
+            const toMaps = document.querySelectorAll('.connToMap');
+            const exitXs = document.querySelectorAll('.connExitX');
+            const exitYs = document.querySelectorAll('.connExitY');
+
+            for (let i = 0; i < toMaps.length; i++) {
+                connections.push([
+                    parseInt(toMaps[i].value),
+                    parseFloat(exitXs[i].value),
+                    parseFloat(exitYs[i].value)
+                ]);
+            }
+
+            state.data.travel_portals[index] = [
+                parseFloat(document.getElementById('editPortalX').value),
+                parseFloat(document.getElementById('editPortalY').value),
+                connections
+            ];
+            markAsModified();
+            closeEditor();
+            showStatus('Travel portal updated', 'success');
+        };
+
+        window.addPortalConnection = function() {
+            const container = document.getElementById('portalConnections');
+            const currentConnections = document.querySelectorAll('.connToMap').length;
+
+            const newConn = document.createElement('div');
+            newConn.style.cssText = 'border: 1px solid #444; padding: 10px; margin: 5px 0; border-radius: 4px;';
+            newConn.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <strong>Connection ${currentConnections + 1}</strong>
+                    <button onclick="this.parentElement.parentElement.remove()" class="danger" style="padding: 4px 8px;">Remove</button>
+                </div>
+                <div class="form-group">
+                    <label>To Map ID:</label>
+                    <input type="number" class="connToMap" data-index="${currentConnections}" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Pick Spawn Position:</label>
+                    <button onclick="pickExitPosition(${currentConnections})" class="secondary" style="width: 100%; margin-bottom: 5px;">Pick on Map</button>
+                </div>
+                <div class="form-group">
+                    <label>Spawn X:</label>
+                    <input type="number" class="connExitX" data-index="${currentConnections}" value="0.000" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Spawn Y:</label>
+                    <input type="number" class="connExitY" data-index="${currentConnections}" value="0.000" step="0.1">
+                </div>
+            `;
+
+            // Remove "no connections" message if present
+            const noConnMsg = container.querySelector('p');
+            if (noConnMsg) noConnMsg.remove();
+
+            container.appendChild(newConn);
+        };
+
+        window.removePortalConnection = function(portalIndex, connIndex) {
+            if (confirm('Remove this connection?')) {
+                const portal = state.data.travel_portals[portalIndex];
+                portal[2].splice(connIndex, 1);
+                markAsModified();
+                closeEditor();
+                showPortalEditor(portalIndex);
+            }
+        };
+
+        window.pickExitPosition = function(connIndex) {
+            state.isPickingExitPosition = true;
+            state.pickingConnectionIndex = connIndex;
+
+            // Hide the editor dialog temporarily
+            const dialog = document.getElementById('editorDialog');
+            if (dialog) {
+                dialog.style.display = 'none';
+            }
+
+            showStatus('Click on the map to set exit position', 'info');
+        };
+
+        function handleExitPositionPick(worldPos) {
+            if (state.pickingConnectionIndex === null) return;
+
+            const connIndex = state.pickingConnectionIndex;
+            const exitXInputs = document.querySelectorAll('.connExitX');
+            const exitYInputs = document.querySelectorAll('.connExitY');
+
+            if (exitXInputs[connIndex] && exitYInputs[connIndex]) {
+                exitXInputs[connIndex].value = worldPos.x.toFixed(3);
+                exitYInputs[connIndex].value = worldPos.y.toFixed(3);
+                showStatus('Exit position set!', 'success');
+            }
+
+            state.isPickingExitPosition = false;
+            state.pickingConnectionIndex = null;
+
+            // Show the editor dialog again
+            const dialog = document.getElementById('editorDialog');
+            if (dialog) {
+                dialog.style.display = 'block';
+            }
+        }
+
+        function showNpcTravelEditor(index) {
+            const npc = state.data.npc_travel[index];
+            // Format: [npcX, npcY, dialogid1, dialogid2, dialogid3, dialogid4, dialogid5, mapid, posX, posY]
+
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel" style="max-height: 80vh; overflow-y: auto;">
+                    <h3>Edit NPC Travel #${index}</h3>
+                    <h4>NPC Position</h4>
+                    <div class="form-group">
+                        <label>NPC X Position:</label>
+                        <input type="number" id="editNpcX" value="${npc[0].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>NPC Y Position:</label>
+                        <input type="number" id="editNpcY" value="${npc[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <h4>Dialog IDs</h4>
+                    <div class="form-group">
+                        <label>Dialog ID 1:</label>
+                        <input type="number" id="editDialogId1" value="${npc[2]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Dialog ID 2:</label>
+                        <input type="number" id="editDialogId2" value="${npc[3]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Dialog ID 3:</label>
+                        <input type="number" id="editDialogId3" value="${npc[4]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Dialog ID 4:</label>
+                        <input type="number" id="editDialogId4" value="${npc[5]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Dialog ID 5:</label>
+                        <input type="number" id="editDialogId5" value="${npc[6]}" min="0">
+                    </div>
+                    <h4>Destination</h4>
+                    <div class="form-group">
+                        <label>To Map ID:</label>
+                        <input type="number" id="editNpcMapId" value="${npc[7]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn at X:</label>
+                        <input type="number" id="editNpcDestX" value="${npc[8].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn at Y:</label>
+                        <input type="number" id="editNpcDestY" value="${npc[9].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="saveNpcTravelEdit(${index})" class="success">Save</button>
+                        <button onclick="closeEditor()" class="secondary">Cancel</button>
+                        <button onclick="deleteNpcTravel(${index}); closeEditor();" class="danger">Delete</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+        }
+
+        window.saveNpcTravelEdit = function(index) {
+            state.data.npc_travel[index] = [
+                parseFloat(document.getElementById('editNpcX').value),
+                parseFloat(document.getElementById('editNpcY').value),
+                parseInt(document.getElementById('editDialogId1').value),
+                parseInt(document.getElementById('editDialogId2').value),
+                parseInt(document.getElementById('editDialogId3').value),
+                parseInt(document.getElementById('editDialogId4').value),
+                parseInt(document.getElementById('editDialogId5').value),
+                parseInt(document.getElementById('editNpcMapId').value),
+                parseFloat(document.getElementById('editNpcDestX').value),
+                parseFloat(document.getElementById('editNpcDestY').value)
+            ];
+            markAsModified();
+            closeEditor();
+            showStatus('NPC travel updated', 'success');
+        };
+
+        function showEnterTravelEditor(index) {
+            const enter = state.data.enter_travel[index];
+            // Format: [enterX, enterY, mapid, destX, destY]
+
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel">
+                    <h3>Edit Enter Travel #${index}</h3>
+                    <h4>Useless Position</h4>
+                    <div class="form-group">
+                        <label>Useless X Position:</label>
+                        <input type="number" id="editEnterX" value="${enter[0].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Useless Y Position:</label>
+                        <input type="number" id="editEnterY" value="${enter[1].toFixed(3)}" step="0.1">
+                    </div>
+                    <h4>Destination</h4>
+                    <div class="form-group">
+                        <label>To Map ID:</label>
+                        <input type="number" id="editEnterMapId" value="${enter[2]}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn at X:</label>
+                        <input type="number" id="editEnterDestX" value="${enter[3].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Spawn at Y:</label>
+                        <input type="number" id="editEnterDestY" value="${enter[4].toFixed(3)}" step="0.1">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="saveEnterTravelEdit(${index})" class="success">Save</button>
+                        <button onclick="closeEditor()" class="secondary">Cancel</button>
+                        <button onclick="deleteEnterTravel(${index}); closeEditor();" class="danger">Delete</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+        }
+
+        window.saveEnterTravelEdit = function(index) {
+            state.data.enter_travel[index] = [
+                parseFloat(document.getElementById('editEnterX').value),
+                parseFloat(document.getElementById('editEnterY').value),
+                parseInt(document.getElementById('editEnterMapId').value),
+                parseFloat(document.getElementById('editEnterDestX').value),
+                parseFloat(document.getElementById('editEnterDestY').value)
+            ];
+            markAsModified();
+            closeEditor();
+            showStatus('Enter travel updated', 'success');
+        };
+
+        window.deletePoint = deletePoint;
+        window.deleteTeleport = deleteTeleport;
+        window.deletePortal = deletePortal;
+        window.deleteNpcTravel = deleteNpcTravel;
+        window.deleteEnterTravel = deleteEnterTravel;
+
+        // UI Controls - Action buttons
+        document.getElementById('btnAdd').addEventListener('click', () => setEditAction('add'));
+        document.getElementById('btnEdit').addEventListener('click', () => setEditAction('edit'));
+        document.getElementById('btnDelete').addEventListener('click', () => setEditAction('delete'));
+
+        // Element type radio buttons
+        document.querySelectorAll('input[name="elementType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    setElementType(e.target.value);
+                }
+            });
+        });
+
+        // Pathfinding test buttons
+        document.getElementById('btnTestPath').addEventListener('click', startPathTest);
+        document.getElementById('btnClearPath').addEventListener('click', clearPathTest);
+
+        // Map info editor
+        document.getElementById('btnEditMapInfo').addEventListener('click', showEditMapInfo);
+
+        // Map IDs management
+        document.getElementById('btnManageMapIds').addEventListener('click', showManageMapIds);
+
+        document.getElementById('resetView').addEventListener('click', resetView);
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            state.zoom = Math.min(10, state.zoom * 1.2);
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+            draw();
+        });
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            state.zoom = Math.max(0.1, state.zoom / 1.2);
+            document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+            draw();
+        });
+
+        function resetView() {
+            state.zoom = 1.0;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            document.getElementById('zoomLevel').textContent = '100%';
+            draw();
+        }
+
+        // Checkbox and slider controls
+        ['showGrid', 'showTrapezoids', 'showPoints', 'showVisGraph', 'showTeleports', 'showPortals', 'showNpcTravel', 'showEnterTravel'].forEach(id => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                state.options[id] = e.target.checked;
+                draw();
+            });
+        });
+
+        document.getElementById('pointSize').addEventListener('input', (e) => {
+            state.options.pointSize = parseFloat(e.target.value);
+            document.getElementById('pointSizeValue').textContent = e.target.value;
+            draw();
+        });
+        document.getElementById('lineThickness').addEventListener('input', (e) => {
+            state.options.lineThickness = parseFloat(e.target.value);
+            document.getElementById('lineThicknessValue').textContent = e.target.value;
+            draw();
+        });
+        document.getElementById('portalSize').addEventListener('input', (e) => {
+            state.options.portalSize = parseFloat(e.target.value);
+            document.getElementById('portalSizeValue').textContent = e.target.value;
+            draw();
+        });
+
+        document.getElementById('pathSpacing').addEventListener('input', (e) => {
+            state.pathSpacing = parseFloat(e.target.value);
+            document.getElementById('pathSpacingValue').textContent = e.target.value;
+            // Recalculate simplified path if we have a computed path
+            if (state.computedPath) {
+                state.simplifiedPath = simplifyPath(state.computedPath, state.pathSpacing);
+                updatePathInfo();
+                draw();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeEditor();
+                state.selectedElement = null;
+                state.isPlacing = false;
+                state.tempStart = null;
+                draw();
+            }
+
+            if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (state.data && state.hasUnsavedChanges) {
+                    saveJSON();
+                }
+            }
+        });
+
+        // Update mode indicator
+        updateModeIndicator();
+
+        // ========== A* Pathfinding Implementation ==========
+
+        function startPathTest() {
+            if (!state.data) return;
+
+            state.isTestingPath = true;
+            state.pathTestStart = null;
+            state.pathTestGoal = null;
+            state.computedPath = null;
+
+            // Disable edit actions while testing path
+            state.editAction = null;
+            updateModeIndicator();
+
+            showStatus('Click to set start position', 'info');
+            draw();
+        }
+
+        function clearPathTest() {
+            state.isTestingPath = false;
+            state.pathTestStart = null;
+            state.pathTestGoal = null;
+            state.computedPath = null;
+            state.simplifiedPath = null;
+            document.getElementById('pathTestInfo').style.display = 'none';
+            document.getElementById('pathCoordsList').style.display = 'none';
+            showStatus('Path test cleared', 'success');
+            draw();
+        }
+
+        function showEditMapInfo() {
+            if (!state.data) return;
+
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel">
+                    <h3>Edit Map Information</h3>
+                    <div class="form-group">
+                        <label>Map Name:</label>
+                        <input type="text" id="editMapName" value="${state.data.map_name || ''}" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label>Continent:</label>
+                        <input type="number" id="editContinent" value="${state.data.continent !== undefined ? state.data.continent : ''}" min="0" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label>Region:</label>
+                        <input type="number" id="editRegion" value="${state.data.region !== undefined ? state.data.region : ''}" min="0" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label>Type:</label>
+                        <input type="number" id="editType" value="${state.data.type !== undefined ? state.data.type : ''}" min="0" style="width: 100%;">
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button onclick="saveMapInfoEdit()" class="success" style="flex: 1;">Save</button>
+                        <button onclick="closeEditor()" class="secondary" style="flex: 1;">Cancel</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('editorDialog').innerHTML = html;
+        }
+
+        window.saveMapInfoEdit = function() {
+            const mapName = document.getElementById('editMapName').value.trim();
+            const continent = document.getElementById('editContinent').value;
+            const region = document.getElementById('editRegion').value;
+            const type = document.getElementById('editType').value;
+
+            if (mapName) {
+                state.data.map_name = mapName;
+            }
+            if (continent !== '') {
+                state.data.continent = parseInt(continent);
+            }
+            if (region !== '') {
+                state.data.region = parseInt(region);
+            }
+            if (type !== '') {
+                state.data.type = parseInt(type);
+            }
+
+            // Update display
+            document.getElementById('mapName').textContent = state.data.map_name || 'Unknown';
+            document.getElementById('mapContinent').textContent = state.data.continent !== undefined ? state.data.continent : '-';
+            document.getElementById('mapRegion').textContent = state.data.region !== undefined ? state.data.region : '-';
+            document.getElementById('mapType').textContent = state.data.type !== undefined ? state.data.type : '-';
+
+            markAsModified();
+            closeEditor();
+            showStatus('Map info updated!', 'success');
+        };
+
+        function showManageMapIds() {
+            const mapIds = state.data.map_ids || [];
+            const mapIdsList = mapIds.map((id, i) => `
+                <div style="display: flex; align-items: center; gap: 10px; margin: 5px 0;">
+                    <span style="flex: 1;">Map ID: ${id}</span>
+                    <button onclick="removeMapId(${i})" class="danger" style="padding: 4px 8px;">Remove</button>
+                </div>
+            `).join('');
+
+            const html = `
+                <div class="overlay" onclick="closeEditor()"></div>
+                <div class="editor-panel">
+                    <h3>Manage Map IDs</h3>
+                    <div style="margin-bottom: 15px;">
+                        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">
+                            Some maps can have multiple IDs for the same physical location (e.g., 248 and 280).
+                        </p>
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            ${mapIdsList || '<p style="color: #888;">No map IDs defined</p>'}
+                        </div>
+                    </div>
+                    <h4>Add New Map ID</h4>
+                    <div class="form-group">
+                        <label>Map ID:</label>
+                        <input type="number" id="newMapId" min="0" placeholder="Enter map ID">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="addMapId()" class="success">Add</button>
+                        <button onclick="closeEditor()" class="secondary">Close</button>
+                    </div>
+                </div>
+            `;
+            showDialog(html);
+        }
+
+        window.addMapId = function() {
+            const input = document.getElementById('newMapId');
+            const mapId = parseInt(input.value);
+
+            if (isNaN(mapId) || mapId < 0) {
+                showStatus('Please enter a valid map ID', 'error');
+                return;
+            }
+
+            if (!state.data.map_ids) {
+                state.data.map_ids = [];
+            }
+
+            if (state.data.map_ids.includes(mapId)) {
+                showStatus('This map ID is already in the list', 'error');
+                return;
+            }
+
+            state.data.map_ids.push(mapId);
+            markAsModified();
+
+            // Update display
+            document.getElementById('mapId').textContent = state.data.map_ids.join(', ');
+
+            showStatus('Map ID added', 'success');
+            closeEditor();
+            showManageMapIds(); // Reopen dialog to show updated list
+        };
+
+        window.removeMapId = function(index) {
+            if (!state.data.map_ids || index < 0 || index >= state.data.map_ids.length) {
+                return;
+            }
+
+            if (state.data.map_ids.length === 1) {
+                showStatus('Cannot remove the last map ID', 'error');
+                return;
+            }
+
+            const mapId = state.data.map_ids[index];
+            if (confirm(`Remove map ID ${mapId}?`)) {
+                state.data.map_ids.splice(index, 1);
+                markAsModified();
+
+                // Update display
+                document.getElementById('mapId').textContent = state.data.map_ids.join(', ');
+
+                showStatus('Map ID removed', 'success');
+                closeEditor();
+                showManageMapIds(); // Reopen dialog to show updated list
+            }
+        };
+
+        // Check if a point is a teleport entry or exit point
+        function isTeleportPoint(x, y, threshold = 50) {
+            if (!state.data.teleports) return false;
+
+            for (const teleport of state.data.teleports) {
+                // Format: [enterX, enterY, enterZ, exitX, exitY, exitZ, type]
+                const [enterX, enterY, , exitX, exitY] = teleport;
+
+                // Check if point matches entrance
+                const dxEnter = Math.abs(x - enterX);
+                const dyEnter = Math.abs(y - enterY);
+                if (dxEnter < threshold && dyEnter < threshold) {
+                    return true;
+                }
+
+                // Check if point matches exit
+                const dxExit = Math.abs(x - exitX);
+                const dyExit = Math.abs(y - exitY);
+                if (dxExit < threshold && dyExit < threshold) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function simplifyPath(path, minSpacing) {
+            if (!path || path.length <= 2) return path;
+
+            const simplified = [];
+
+            // Always add start point
+            simplified.push(path[0]);
+
+            let lastAddedPoint = path[0];
+
+            // Iterate through middle points
+            for (let i = 1; i < path.length - 1; i++) {
+                const currentPoint = path[i];
+                const dx = currentPoint.x - lastAddedPoint.x;
+                const dy = currentPoint.y - lastAddedPoint.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Check if this is a teleport point (entrance or exit)
+                const isTeleportWaypoint = isTeleportPoint(currentPoint.x, currentPoint.y);
+
+                // Add point if it's far enough from the last added point OR if it's a teleport point
+                if (distance >= minSpacing || isTeleportWaypoint) {
+                    simplified.push(currentPoint);
+                    lastAddedPoint = currentPoint;
+                }
+            }
+
+            // Always add end point
+            simplified.push(path[path.length - 1]);
+
+            return simplified;
+        }
+
+        function handlePathTestClick(worldPos) {
+            if (!state.pathTestStart) {
+                state.pathTestStart = worldPos;
+                showStatus('Click to set goal position', 'info');
+                draw();
+            } else if (!state.pathTestGoal) {
+                state.pathTestGoal = worldPos;
+                computePath();
+            }
+        }
+
+        function computePath() {
+            if (!state.pathTestStart || !state.pathTestGoal) return;
+
+            // Show loading status
+            showStatus('Computing path... This may take a few seconds for large maps.', 'info');
+            document.getElementById('pathTestInfo').style.display = 'none';
+            document.getElementById('pathCoordsList').style.display = 'none';
+
+            // Use setTimeout to allow UI to update before heavy computation
+            setTimeout(() => {
+                const startTime = performance.now();
+
+                try {
+                    console.log('Starting A* search with', state.data.points.length, 'points');
+                    const path = aStarSearch(state.pathTestStart, state.pathTestGoal);
+                    const endTime = performance.now();
+
+                    if (path && path.length > 0) {
+                        state.computedPath = path;
+                        state.simplifiedPath = simplifyPath(path, state.pathSpacing);
+
+                        // Calculate total cost
+                        let totalCost = 0;
+                        for (let i = 1; i < path.length; i++) {
+                            const dx = path[i].x - path[i-1].x;
+                            const dy = path[i].y - path[i-1].y;
+                            totalCost += Math.sqrt(dx * dx + dy * dy);
+                        }
+
+                        // Display info
+                        document.getElementById('pathTestInfo').style.display = 'block';
+                        document.getElementById('pathCost').textContent = totalCost.toFixed(2);
+                        document.getElementById('pathRawPoints').textContent = path.length;
+                        document.getElementById('pathPoints').textContent = state.simplifiedPath.length;
+                        document.getElementById('pathTime').textContent = (endTime - startTime).toFixed(2) + ' ms';
+
+                        updatePathInfo();
+
+                        showStatus(`Path found with ${path.length} points (${state.simplifiedPath.length} simplified) in ${(endTime - startTime).toFixed(0)}ms!`, 'success');
+                        console.log('Path computation completed in', (endTime - startTime).toFixed(2), 'ms');
+                    } else {
+                        showStatus('No path found!', 'error');
+                        console.error('A* search returned null or empty path');
+                        document.getElementById('pathTestInfo').style.display = 'none';
+                        document.getElementById('pathCoordsList').style.display = 'none';
+                    }
+                } catch (error) {
+                    showStatus('Error computing path: ' + error.message, 'error');
+                    console.error('Path computation error:', error);
+                    document.getElementById('pathTestInfo').style.display = 'none';
+                    document.getElementById('pathCoordsList').style.display = 'none';
+                }
+
+                draw();
+            }, 50); // 50ms delay to allow UI to update
+        }
+
+        function updatePathInfo() {
+            if (!state.simplifiedPath || state.simplifiedPath.length === 0) return;
+
+            // Display coordinates list
+            const coordsDiv = document.getElementById('coordsContent');
+            let html = '';
+
+            for (let i = 0; i < state.simplifiedPath.length; i++) {
+                const point = state.simplifiedPath[i];
+                html += `${i}: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})<br>`;
+            }
+
+            coordsDiv.innerHTML = html;
+            document.getElementById('pathCoordsList').style.display = 'block';
+        }
+
+        function aStarSearch(startPos, goalPos) {
+            if (!state.data || !state.data.points || !state.data.vis_graph) {
+                throw new Error('Missing pathfinding data');
+            }
+
+            // Find closest points on the map
+            const startPoint = createTemporaryPoint(startPos);
+            const goalPoint = createTemporaryPoint(goalPos);
+
+            if (!startPoint || !goalPoint) {
+                throw new Error('Could not find valid start or goal position');
+            }
+
+            // Check for direct line of sight
+            if (hasLineOfSight(startPoint, goalPoint)) {
+                return [
+                    { x: startPoint.pos.x, y: startPoint.pos.y },
+                    { x: goalPoint.pos.x, y: goalPoint.pos.y }
+                ];
+            }
+
+            // Add temporary points to graph
+            const startId = state.data.points.length;
+            const goalId = startId + 1;
+
+            insertPointIntoVisGraph(startPoint, startId);
+            insertPointIntoVisGraph(goalPoint, goalId);
+
+            // A* algorithm (matching C++ implementation)
+            const costSoFar = new Array(state.data.points.length + 2).fill(Infinity);
+            const cameFrom = new Array(state.data.points.length + 2).fill(-1);
+            const openSet = new MinPriorityQueue();
+
+            costSoFar[startId] = 0;
+            cameFrom[startId] = startId;
+            openSet.enqueue(startId, 0);
+
+            const useTeleports = state.data.teleports && state.data.teleports.length > 0;
+            let iterations = 0;
+            let lastLogIteration = 0;
+
+            let current = -1;
+            while (!openSet.isEmpty()) {
+                iterations++;
+
+                // Log progress every 100k iterations for monitoring (no limit)
+                if (iterations - lastLogIteration >= 100000) {
+                    console.log('A* progress:', iterations, 'iterations, queue size:', openSet.heap.length);
+                    lastLogIteration = iterations;
+                }
+
+                current = openSet.dequeue().element;
+
+                if (current === goalId) break;
+
+                const edges = state.data.vis_graph[current] || [];
+                for (const edge of edges) {
+                    const pointId = edge[0];
+                    const distance = edge[1];
+
+                    // Check blocked layers (edge[2] contains blocking_ids)
+                    // For now, we skip this check as it requires blocked_layers parameter
+
+                    const newCost = costSoFar[current] + distance;
+                    if (newCost < costSoFar[pointId]) {
+                        costSoFar[pointId] = newCost;
+                        cameFrom[pointId] = current;
+
+                        let priority = newCost;
+
+                        // Add heuristic (matching C++ logic)
+                        if (useTeleports) {
+                            const point = pointId < state.data.points.length
+                                ? state.data.points[pointId]
+                                : (pointId === goalId ? goalPoint : startPoint);
+
+                            const pointPos = { x: point.pos ? point.pos.x : point[1], y: point.pos ? point.pos.y : point[2] };
+                            const goalPosActual = { x: goalPoint.pos.x, y: goalPoint.pos.y };
+
+                            const directDist = getDistance(pointPos, goalPosActual);
+                            const tpCost = teleporterHeuristic(point, goalPoint);
+
+                            // Use minimum of direct path or teleporter path
+                            priority += Math.min(directDist, tpCost);
+                        } else {
+                            // No teleporters, just use euclidean distance
+                            const point = pointId < state.data.points.length
+                                ? state.data.points[pointId]
+                                : (pointId === goalId ? goalPoint : startPoint);
+                            const heuristic = getDistance(
+                                { x: point.pos ? point.pos.x : point[1], y: point.pos ? point.pos.y : point[2] },
+                                { x: goalPoint.pos.x, y: goalPoint.pos.y }
+                            );
+                            priority += heuristic;
+                        }
+
+                        openSet.enqueue(pointId, priority);
+                    }
+                }
+            }
+
+            // Remove temporary points from vis graph
+            if (state.data.vis_graph[startId]) {
+                for (const edge of state.data.vis_graph[startId]) {
+                    const otherEdges = state.data.vis_graph[edge[0]];
+                    if (otherEdges) {
+                        const idx = otherEdges.findIndex(e => e[0] === startId);
+                        if (idx >= 0) otherEdges.splice(idx, 1);
+                    }
+                }
+                state.data.vis_graph[startId] = [];
+            }
+
+            if (state.data.vis_graph[goalId]) {
+                for (const edge of state.data.vis_graph[goalId]) {
+                    const otherEdges = state.data.vis_graph[edge[0]];
+                    if (otherEdges) {
+                        const idx = otherEdges.findIndex(e => e[0] === goalId);
+                        if (idx >= 0) otherEdges.splice(idx, 1);
+                    }
+                }
+                state.data.vis_graph[goalId] = [];
+            }
+
+            // Build path (no length limit - unlimited waypoints)
+            console.log('A* completed after', iterations, 'iterations');
+
+            if (current === goalId) {
+                const path = [];
+                let curr = goalId;
+                let pathLength = 0;
+
+                while (curr !== startId) {
+                    const point = curr < state.data.points.length
+                        ? state.data.points[curr]
+                        : (curr === goalId ? goalPoint : startPoint);
+                    path.unshift({
+                        x: point.pos ? point.pos.x : point[1],
+                        y: point.pos ? point.pos.y : point[2]
+                    });
+                    curr = cameFrom[curr];
+                    pathLength++;
+
+                    // Safety check to prevent infinite loops (detect cycles)
+                    if (pathLength > state.data.points.length * 2) {
+                        console.error('Path reconstruction appears to be in a cycle');
+                        return null;
+                    }
+                }
+                path.unshift({ x: startPoint.pos.x, y: startPoint.pos.y });
+                console.log('Path built with', path.length, 'waypoints');
+                return path;
+            }
+
+            console.error('Failed to find path after', iterations, 'iterations. Current node:', current, 'Goal:', goalId);
+            return null;
+        }
+
+        function createTemporaryPoint(pos) {
+            // Find AABB containing this position
+            let foundBox = null;
+            if (state.data.trapezoids) {
+                for (const trap of state.data.trapezoids) {
+                    if (isPointInTrapezoid(pos, trap)) {
+                        foundBox = trap;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundBox) return null;
+
+            return {
+                pos: { x: pos.x, y: pos.y },
+                box: foundBox,
+                layer: foundBox[1]
+            };
+        }
+
+        function isPointInTrapezoid(p, trap) {
+            // Extract trapezoid vertices [id, layer, ax, ay, bx, by, cx, cy, dx, dy]
+            const a = { x: trap[2], y: trap[3] };
+            const b = { x: trap[4], y: trap[5] };
+            const c = { x: trap[6], y: trap[7] };
+            const d = { x: trap[8], y: trap[9] };
+
+            function sign(p1, p2, p3) {
+                return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+            }
+
+            // Check if point is inside quadrilateral using triangulation
+            const d1 = sign(p, a, b);
+            const d2 = sign(p, b, c);
+            const d3 = sign(p, c, d);
+            const d4 = sign(p, d, a);
+
+            const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0) || (d4 < 0);
+            const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0) || (d4 > 0);
+
+            return !(hasNeg && hasPos);
+        }
+
+        function hasLineOfSight(from, to) {
+            // Simplified LOS check - can be enhanced
+            const dx = to.pos.x - from.pos.x;
+            const dy = to.pos.y - from.pos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // If too far, no LOS
+            if (dist > 5000) return false;
+
+            return true;
+        }
+
+        function insertPointIntoVisGraph(point, pointId) {
+            if (!state.data.vis_graph[pointId]) {
+                state.data.vis_graph[pointId] = [];
+            }
+
+            const maxConnections = 8;
+            const maxRange = 5000;
+
+            // Find nearby points to connect to
+            const connections = [];
+            for (let i = 0; i < state.data.points.length; i++) {
+                const otherPoint = state.data.points[i];
+                const dx = otherPoint[1] - point.pos.x;
+                const dy = otherPoint[2] - point.pos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < maxRange) {
+                    connections.push({ id: i, distance: distance });
+                }
+            }
+
+            // Sort by distance and take closest
+            connections.sort((a, b) => a.distance - b.distance);
+            const toConnect = connections.slice(0, maxConnections);
+
+            // Add bidirectional edges
+            for (const conn of toConnect) {
+                state.data.vis_graph[pointId].push([conn.id, conn.distance]);
+                if (!state.data.vis_graph[conn.id]) {
+                    state.data.vis_graph[conn.id] = [];
+                }
+                state.data.vis_graph[conn.id].push([pointId, conn.distance]);
+            }
+        }
+
+        function getDistance(p1, p2) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Teleporter heuristic (matching C++ implementation)
+        function teleporterHeuristic(startPoint, goalPoint) {
+            if (!state.data.teleports || state.data.teleports.length === 0) {
+                return Infinity;
+            }
+
+            const startPos = startPoint.pos || { x: startPoint[1], y: startPoint[2] };
+            const goalPos = goalPoint.pos || { x: goalPoint[1], y: goalPoint[2] };
+
+            // Find closest teleporter to start
+            let closestToStart = null;
+            let closestToStartDist = Infinity;
+            let closestToStartIdx = -1;
+
+            for (let i = 0; i < state.data.teleports.length; i++) {
+                const tp = state.data.teleports[i];
+                const enterPos = { x: tp[0], y: tp[1] };
+                const dist = getDistance(startPos, enterPos);
+                if (dist < closestToStartDist) {
+                    closestToStartDist = dist;
+                    closestToStart = tp;
+                    closestToStartIdx = i;
+                }
+            }
+
+            // Find closest teleporter to goal
+            let closestToGoal = null;
+            let closestToGoalDist = Infinity;
+            let closestToGoalIdx = -1;
+
+            for (let i = 0; i < state.data.teleports.length; i++) {
+                const tp = state.data.teleports[i];
+                const exitPos = { x: tp[3], y: tp[4] };
+                const dist = getDistance(goalPos, exitPos);
+                if (dist < closestToGoalDist) {
+                    closestToGoalDist = dist;
+                    closestToGoal = tp;
+                    closestToGoalIdx = i;
+                }
+            }
+
+            if (!closestToStart || !closestToGoal) {
+                return Infinity;
+            }
+
+            // Cost = distance to enter teleporter + teleporter travel + distance from exit to goal
+            const enterPos = { x: closestToStart[0], y: closestToStart[1] };
+            const exitPos = { x: closestToStart[3], y: closestToStart[4] };
+            const goalExitPos = { x: closestToGoal[3], y: closestToGoal[4] };
+
+            // If same teleporter or connected, use teleporter graph
+            if (closestToStartIdx === closestToGoalIdx) {
+                return closestToStartDist + getDistance(exitPos, goalPos);
+            }
+
+            // Different teleporters - use approximate cost
+            const tpTravelCost = getDistance(exitPos, goalExitPos);
+            return closestToStartDist + tpTravelCost + closestToGoalDist;
+        }
+
+        // Heap-based MinPriorityQueue implementation (matching C++ std::priority_queue)
+        class MinPriorityQueue {
+            constructor() {
+                this.heap = [];
+            }
+
+            enqueue(element, priority) {
+                this.heap.push({ element, priority });
+                this._bubbleUp(this.heap.length - 1);
+            }
+
+            dequeue() {
+                if (this.heap.length === 0) return null;
+                if (this.heap.length === 1) return this.heap.pop();
+
+                const min = this.heap[0];
+                this.heap[0] = this.heap.pop();
+                this._bubbleDown(0);
+                return min;
+            }
+
+            isEmpty() {
+                return this.heap.length === 0;
+            }
+
+            _bubbleUp(index) {
+                while (index > 0) {
+                    const parentIndex = Math.floor((index - 1) / 2);
+                    if (this.heap[index].priority >= this.heap[parentIndex].priority) break;
+
+                    [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]];
+                    index = parentIndex;
+                }
+            }
+
+            _bubbleDown(index) {
+                while (true) {
+                    const leftChild = 2 * index + 1;
+                    const rightChild = 2 * index + 2;
+                    let smallest = index;
+
+                    if (leftChild < this.heap.length && this.heap[leftChild].priority < this.heap[smallest].priority) {
+                        smallest = leftChild;
+                    }
+                    if (rightChild < this.heap.length && this.heap[rightChild].priority < this.heap[smallest].priority) {
+                        smallest = rightChild;
+                    }
+
+                    if (smallest === index) break;
+
+                    [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
+                    index = smallest;
+                }
+            }
+        }
+
+        function drawPathTest() {
+            const ctx = state.ctx;
+
+            // Draw start point
+            if (state.pathTestStart) {
+                const startPos = worldToScreen(state.pathTestStart.x, state.pathTestStart.y);
+                ctx.fillStyle = '#00ff00';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(startPos.x, startPos.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('START', startPos.x + 15, startPos.y + 5);
+            }
+
+            // Draw goal point
+            if (state.pathTestGoal) {
+                const goalPos = worldToScreen(state.pathTestGoal.x, state.pathTestGoal.y);
+                ctx.fillStyle = '#ff0000';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(goalPos.x, goalPos.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('GOAL', goalPos.x + 15, goalPos.y + 5);
+            }
+
+            // Draw raw computed path (faded)
+            if (state.computedPath && state.computedPath.length > 1) {
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+
+                ctx.beginPath();
+                const firstPos = worldToScreen(state.computedPath[0].x, state.computedPath[0].y);
+                ctx.moveTo(firstPos.x, firstPos.y);
+
+                for (let i = 1; i < state.computedPath.length; i++) {
+                    const pos = worldToScreen(state.computedPath[i].x, state.computedPath[i].y);
+                    ctx.lineTo(pos.x, pos.y);
+                }
+
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw simplified path (bright and bold)
+            if (state.simplifiedPath && state.simplifiedPath.length > 1) {
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([]);
+
+                ctx.beginPath();
+                const firstPos = worldToScreen(state.simplifiedPath[0].x, state.simplifiedPath[0].y);
+                ctx.moveTo(firstPos.x, firstPos.y);
+
+                for (let i = 1; i < state.simplifiedPath.length; i++) {
+                    const pos = worldToScreen(state.simplifiedPath[i].x, state.simplifiedPath[i].y);
+                    ctx.lineTo(pos.x, pos.y);
+                }
+
+                ctx.stroke();
+
+                // Draw simplified path points (larger)
+                ctx.fillStyle = '#00ffff';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < state.simplifiedPath.length; i++) {
+                    const point = state.simplifiedPath[i];
+                    const pos = worldToScreen(point.x, point.y);
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw point number
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.fillText(i.toString(), pos.x + 10, pos.y - 10);
+                    ctx.fillStyle = '#00ffff';
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>

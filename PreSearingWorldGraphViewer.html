@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Searing World Graph Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #444;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            background: #1a1a1a;
+        }
+
+        #worldCanvas {
+            display: block;
+            cursor: grab;
+        }
+
+        #worldCanvas:active {
+            cursor: grabbing;
+        }
+
+        h2 {
+            color: #4a90e2;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        h3 {
+            color: #6ab0f2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background: #3a7bc8;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .checkbox-item input {
+            margin-right: 8px;
+        }
+
+        .info-box {
+            background: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .info-box div {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+
+        .info-box strong {
+            color: #4a90e2;
+        }
+
+        #coordsDisplay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        #zoomDisplay {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .status {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .status.success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+
+        .status.info {
+            background: #2196f3;
+            color: white;
+        }
+
+        .map-list {
+            margin-top: 10px;
+        }
+
+        .map-item {
+            background: #3a3a3a;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .map-item.loaded {
+            background: #2a5a2a;
+        }
+
+        .map-item.error {
+            background: #5a2a2a;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #b0b0b0;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: #555;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4a90e2;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4a90e2;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Pre-Searing World Graph</h2>
+
+            <div class="control-group">
+                <label for="folderInput">Select Maps Folder (Pathfinder/maps):</label>
+                <input type="file" id="folderInput" webkitdirectory directory multiple style="margin-bottom: 10px;">
+                <div id="folderStatus" style="font-size: 12px; color: #888; margin: 5px 0;"></div>
+                <button id="clearButton" disabled>Clear All</button>
+                <button id="analyzeButton" disabled style="margin-top: 10px;">Analyze Portal Alignment</button>
+            </div>
+
+            <h3>Display Options</h3>
+            <div class="control-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showPoints">
+                    <label for="showPoints">Show Points</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showVisGraph">
+                    <label for="showVisGraph">Show Visibility Graph</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showGrid" checked>
+                    <label for="showGrid">Show Grid</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showTrapezoids" checked>
+                    <label for="showTrapezoids">Show Trapezoids</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showTeleports" checked>
+                    <label for="showTeleports">Show Teleports</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showPortals" checked>
+                    <label for="showPortals">Show Travel Portals</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showNpcTravel" checked>
+                    <label for="showNpcTravel">Show NPC Travel</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showEnterTravel" checked>
+                    <label for="showEnterTravel">Show Enter Travel</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showMapBounds" checked>
+                    <label for="showMapBounds">Show Map Boundaries</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showMapNames" checked>
+                    <label for="showMapNames">Show Map Names</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showPortalConnections" checked>
+                    <label for="showPortalConnections">Show Portal Connections</label>
+                </div>
+            </div>
+
+            <h3>Loaded Maps</h3>
+            <div class="map-list" id="mapList"></div>
+
+            <div class="info-box" id="statsBox" style="display: none;">
+                <strong>Statistics</strong>
+                <div>Maps Loaded: <span id="mapsLoaded">0</span></div>
+                <div>Total Points: <span id="totalPoints">0</span></div>
+                <div>Total Edges: <span id="totalEdges">0</span></div>
+                <div>Total Teleports: <span id="totalTeleports">0</span></div>
+            </div>
+
+            <h3>Pathfinding</h3>
+            <div class="info-box">
+                <div style="margin-bottom: 10px;">
+                    <button id="setStartBtn" class="button">Set Start Point</button>
+                    <div id="startPointDisplay" style="margin-top: 5px; font-size: 12px; color: #4a90e2;"></div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <button id="setEndBtn" class="button">Set End Point</button>
+                    <div id="endPointDisplay" style="margin-top: 5px; font-size: 12px; color: #ff6b6b;"></div>
+                </div>
+                <button id="findPathBtn" class="button" disabled>Find Path</button>
+                <button id="clearPathBtn" class="button" style="margin-left: 5px;" disabled>Clear Path</button>
+                <div id="pathStatsDisplay" style="margin-top: 10px; font-size: 12px;"></div>
+            </div>
+
+            <div class="slider-group" style="margin-top: 10px;">
+                <div class="slider-item">
+                    <div class="slider-label">
+                        <span>Point Spacing</span>
+                        <span id="pathSpacingValue">1000</span>
+                    </div>
+                    <input type="range" id="pathSpacing" min="500" max="5000" value="1000" step="100">
+                </div>
+            </div>
+
+            <div id="pathTestInfo" class="info-box" style="display: none; margin-top: 10px;">
+                <div><strong>Path Cost:</strong> <span id="pathCost">-</span></div>
+                <div><strong>Raw Points:</strong> <span id="pathRawPoints">-</span></div>
+                <div><strong>Simplified Points:</strong> <span id="pathPoints">-</span></div>
+                <div><strong>Time:</strong> <span id="pathTime">-</span></div>
+            </div>
+
+            <div id="pathCoordsList" class="info-box" style="display: none; margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                <strong>Path Coordinates:</strong>
+                <div id="coordsContent" style="font-family: monospace; font-size: 11px; margin-top: 5px;"></div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="worldCanvas"></canvas>
+            <div id="coordsDisplay">World: (0, 0)</div>
+            <div id="zoomDisplay">Zoom: 100%</div>
+            <div id="statusMessage" class="status"></div>
+        </div>
+    </div>
+
+    <script>
+        // Pre-Searing map IDs to load
+        const PRE_SEARING_MAPS = [
+            145, // The Catacombs
+            146, // Lakeside County
+            160, // Green Hills County
+            161, // Wizard's Folly
+            162, // Pre-Searing Regent Valley
+            147, // The Northlands
+            163, // Pre-Searing The Baradin Estate
+            165, // Pre-Searing Foible's Fair
+            164, // Pre-Searing Ashford Abbey
+            166, // Pre-Searing Fort Ranik
+            151, // Ascalon City (Pre)
+            148  // Ascalon City (Pre)
+        ];
+
+        // Application state
+        const state = {
+            canvas: null,
+            ctx: null,
+            zoom: 0.1, // Start zoomed out to see the whole world
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+
+            maps: new Map(), // Map ID -> map data
+            worldBounds: null,
+
+            options: {
+                showPoints: false,
+                showVisGraph: false,
+                showGrid: true,
+                showTrapezoids: true,
+                showTeleports: true,
+                showPortals: true,
+                showNpcTravel: true,
+                showEnterTravel: true,
+                showMapBounds: true,
+                showMapNames: true,
+                showPortalConnections: true,
+                pointSize: 2,
+                lineThickness: 1
+            },
+
+            mouseWorldPos: null, // Track mouse position in world coordinates
+
+            // Pathfinding state
+            startPoint: null, // {x, y, mapId}
+            endPoint: null,   // {x, y, mapId}
+            currentPath: null, // Array of path segments
+            isSettingStart: false,
+            isSettingEnd: false,
+            pathSpacing: 1000, // Point spacing for path simplification
+            computedPath: null, // Raw path before simplification
+            simplifiedPath: null // Simplified path after applying spacing
+        };
+
+        // Initialize
+        function init() {
+            state.canvas = document.getElementById('worldCanvas');
+            state.ctx = state.canvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Mouse events
+            state.canvas.addEventListener('mousedown', handleMouseDown);
+            state.canvas.addEventListener('mousemove', handleMouseMove);
+            state.canvas.addEventListener('mouseup', handleMouseUp);
+            state.canvas.addEventListener('wheel', handleWheel);
+            state.canvas.addEventListener('mouseleave', () => state.isDragging = false);
+            state.canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Button events
+            document.getElementById('folderInput').addEventListener('change', handleFolderSelect);
+            document.getElementById('clearButton').addEventListener('click', clearAll);
+            document.getElementById('analyzeButton').addEventListener('click', analyzePortalAlignment);
+
+            // Checkbox events
+            document.getElementById('showPoints').addEventListener('change', (e) => {
+                state.options.showPoints = e.target.checked;
+                draw();
+            });
+            document.getElementById('showVisGraph').addEventListener('change', (e) => {
+                state.options.showVisGraph = e.target.checked;
+                draw();
+            });
+            document.getElementById('showGrid').addEventListener('change', (e) => {
+                state.options.showGrid = e.target.checked;
+                draw();
+            });
+            document.getElementById('showTrapezoids').addEventListener('change', (e) => {
+                state.options.showTrapezoids = e.target.checked;
+                draw();
+            });
+            document.getElementById('showTeleports').addEventListener('change', (e) => {
+                state.options.showTeleports = e.target.checked;
+                draw();
+            });
+            document.getElementById('showPortals').addEventListener('change', (e) => {
+                state.options.showPortals = e.target.checked;
+                draw();
+            });
+            document.getElementById('showNpcTravel').addEventListener('change', (e) => {
+                state.options.showNpcTravel = e.target.checked;
+                draw();
+            });
+            document.getElementById('showEnterTravel').addEventListener('change', (e) => {
+                state.options.showEnterTravel = e.target.checked;
+                draw();
+            });
+            document.getElementById('showMapBounds').addEventListener('change', (e) => {
+                state.options.showMapBounds = e.target.checked;
+                draw();
+            });
+            document.getElementById('showMapNames').addEventListener('change', (e) => {
+                state.options.showMapNames = e.target.checked;
+                draw();
+            });
+            document.getElementById('showPortalConnections').addEventListener('change', (e) => {
+                state.options.showPortalConnections = e.target.checked;
+                draw();
+            });
+
+            // Pathfinding button events
+            document.getElementById('setStartBtn').addEventListener('click', () => {
+                state.isSettingStart = true;
+                state.isSettingEnd = false;
+                document.getElementById('setStartBtn').style.backgroundColor = '#4a90e2';
+                document.getElementById('setEndBtn').style.backgroundColor = '';
+                state.canvas.style.cursor = 'crosshair';
+            });
+
+            document.getElementById('setEndBtn').addEventListener('click', () => {
+                state.isSettingEnd = true;
+                state.isSettingStart = false;
+                document.getElementById('setEndBtn').style.backgroundColor = '#ff6b6b';
+                document.getElementById('setStartBtn').style.backgroundColor = '';
+                state.canvas.style.cursor = 'crosshair';
+            });
+
+            document.getElementById('findPathBtn').addEventListener('click', () => {
+                if (state.startPoint && state.endPoint) {
+                    findPath();
+                }
+            });
+
+            document.getElementById('clearPathBtn').addEventListener('click', () => {
+                state.startPoint = null;
+                state.endPoint = null;
+                state.currentPath = null;
+                state.computedPath = null;
+                state.simplifiedPath = null;
+                state.isSettingStart = false;
+                state.isSettingEnd = false;
+                state.canvas.style.cursor = 'default';
+                document.getElementById('setStartBtn').style.backgroundColor = '';
+                document.getElementById('setEndBtn').style.backgroundColor = '';
+                document.getElementById('startPointDisplay').textContent = '';
+                document.getElementById('endPointDisplay').textContent = '';
+                document.getElementById('pathStatsDisplay').textContent = '';
+                document.getElementById('pathTestInfo').style.display = 'none';
+                document.getElementById('pathCoordsList').style.display = 'none';
+                document.getElementById('findPathBtn').disabled = true;
+                document.getElementById('clearPathBtn').disabled = true;
+                draw();
+            });
+
+            document.getElementById('pathSpacing').addEventListener('input', (e) => {
+                state.pathSpacing = parseFloat(e.target.value);
+                document.getElementById('pathSpacingValue').textContent = e.target.value;
+                // Recalculate simplified path if we have a computed path
+                if (state.computedPath) {
+                    state.simplifiedPath = simplifyPath(state.computedPath, state.pathSpacing);
+                    updatePathInfo();
+                    // Note: For display purposes, we keep the original currentPath segments
+                    // The slider only affects the statistics and coordinate list display
+                }
+            });
+
+            updateMapList();
+        }
+
+        function resizeCanvas() {
+            const container = state.canvas.parentElement;
+            state.canvas.width = container.clientWidth;
+            state.canvas.height = container.clientHeight;
+            draw();
+        }
+
+        // Coordinate conversion
+        // Convert game map local coordinates to world coordinates
+        function gameToWorld(gameX, gameY, mapInfo) {
+            const data = mapInfo.data;
+            if (!data.game_map_boundaries || !data.world_map_bounds) {
+                return { x: gameX, y: gameY };
+            }
+
+            const gameMinX = data.game_map_boundaries.min_x;
+            const gameMinY = data.game_map_boundaries.min_y;
+            const gameMaxX = data.game_map_boundaries.max_x;
+            const gameMaxY = data.game_map_boundaries.max_y;
+
+            const worldMinX = data.world_map_bounds.min_x;
+            const worldMinY = data.world_map_bounds.min_y;
+            const worldMaxX = data.world_map_bounds.max_x;
+            const worldMaxY = data.world_map_bounds.max_y;
+
+            // Normalize game coordinates to [0, 1]
+            const normalizedX = (gameX - gameMinX) / (gameMaxX - gameMinX);
+            const normalizedY = (gameY - gameMinY) / (gameMaxY - gameMinY);
+
+            // Map to world coordinates
+            const worldX = worldMinX + normalizedX * (worldMaxX - worldMinX);
+            // Invert Y axis by using (1 - normalizedY) instead of normalizedY
+            const worldY = worldMinY + (1 - normalizedY) * (worldMaxY - worldMinY);
+
+            return { x: worldX, y: worldY };
+        }
+
+        function worldToScreen(worldX, worldY) {
+            return {
+                x: worldX * state.zoom + state.offsetX,
+                y: worldY * state.zoom + state.offsetY
+            };
+        }
+
+        function screenToWorld(screenX, screenY) {
+            return {
+                x: (screenX - state.offsetX) / state.zoom,
+                y: (screenY - state.offsetY) / state.zoom
+            };
+        }
+
+        function worldToGame(worldX, worldY, mapInfo) {
+            const data = mapInfo.data;
+            if (!data.game_map_boundaries || !data.world_map_bounds) {
+                return { x: worldX, y: worldY };
+            }
+
+            const gameMinX = data.game_map_boundaries.min_x;
+            const gameMinY = data.game_map_boundaries.min_y;
+            const gameMaxX = data.game_map_boundaries.max_x;
+            const gameMaxY = data.game_map_boundaries.max_y;
+
+            const worldMinX = data.world_map_bounds.min_x;
+            const worldMinY = data.world_map_bounds.min_y;
+            const worldMaxX = data.world_map_bounds.max_x;
+            const worldMaxY = data.world_map_bounds.max_y;
+
+            // Convert world to normalized [0, 1]
+            const normalizedX = (worldX - worldMinX) / (worldMaxX - worldMinX);
+            // Invert Y back (undo the Y-flip from gameToWorld)
+            const normalizedY = 1 - ((worldY - worldMinY) / (worldMaxY - worldMinY));
+
+            // Map to game coordinates
+            const gameX = gameMinX + normalizedX * (gameMaxX - gameMinX);
+            const gameY = gameMinY + normalizedY * (gameMaxY - gameMinY);
+
+            return { x: gameX, y: gameY };
+        }
+
+        // Mouse handling
+        function handleMouseDown(e) {
+            // Handle pathfinding point selection
+            if (e.button === 0 && (state.isSettingStart || state.isSettingEnd)) {
+                const rect = state.canvas.getBoundingClientRect();
+                const screenX = e.clientX - rect.left;
+                const screenY = e.clientY - rect.top;
+                const worldPos = screenToWorld(screenX, screenY);
+
+                // Find which map the click is on
+                let clickedMapId = null;
+                let clickedMapInfo = null;
+                let candidateMaps = [];
+
+                // Find all maps that contain this world position
+                for (const [mapId, mapInfo] of state.maps) {
+                    const data = mapInfo.data;
+                    if (data.world_map_bounds) {
+                        const wb = data.world_map_bounds;
+                        if (worldPos.x >= wb.min_x && worldPos.x <= wb.max_x &&
+                            worldPos.y >= wb.min_y && worldPos.y <= wb.max_y) {
+                            candidateMaps.push({ mapId, mapInfo });
+                        }
+                    }
+                }
+
+                // If multiple maps overlap, choose the one that has points near the click position
+                if (candidateMaps.length > 0) {
+                    let bestMap = null;
+                    let closestDistance = Infinity;
+
+                    // Find the map with the closest point to the click position
+                    for (const candidate of candidateMaps) {
+                        if (candidate.mapInfo.data.points && candidate.mapInfo.data.points.length > 0) {
+                            // Find closest point in this map to the click position
+                            const mapCoords = worldToGame(worldPos.x, worldPos.y, candidate.mapInfo);
+
+                            for (const point of candidate.mapInfo.data.points) {
+                                const dx = point[1] - mapCoords.x;
+                                const dy = point[2] - mapCoords.y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                                if (distance < closestDistance) {
+                                    closestDistance = distance;
+                                    bestMap = candidate;
+                                }
+                            }
+                        }
+                    }
+
+                    // If no map with points, use the first candidate
+                    if (!bestMap) {
+                        bestMap = candidateMaps[0];
+                    }
+
+                    clickedMapId = bestMap.mapId;
+                    clickedMapInfo = bestMap.mapInfo;
+                }
+
+                if (clickedMapId !== null) {
+                    const mapCoords = worldToGame(worldPos.x, worldPos.y, clickedMapInfo);
+
+                    if (state.isSettingStart) {
+                        state.startPoint = {
+                            x: mapCoords.x,
+                            y: mapCoords.y,
+                            worldX: worldPos.x,
+                            worldY: worldPos.y,
+                            mapId: clickedMapId
+                        };
+                        state.isSettingStart = false;
+                        state.canvas.style.cursor = 'default';
+                        document.getElementById('setStartBtn').style.backgroundColor = '';
+                        document.getElementById('startPointDisplay').textContent =
+                            `Map ${clickedMapId}: (${mapCoords.x.toFixed(0)}, ${mapCoords.y.toFixed(0)})`;
+
+                        // Enable Find Path button if both points are set
+                        if (state.endPoint) {
+                            document.getElementById('findPathBtn').disabled = false;
+                        }
+                        draw();
+                    } else if (state.isSettingEnd) {
+                        state.endPoint = {
+                            x: mapCoords.x,
+                            y: mapCoords.y,
+                            worldX: worldPos.x,
+                            worldY: worldPos.y,
+                            mapId: clickedMapId
+                        };
+                        state.isSettingEnd = false;
+                        state.canvas.style.cursor = 'default';
+                        document.getElementById('setEndBtn').style.backgroundColor = '';
+                        document.getElementById('endPointDisplay').textContent =
+                            `Map ${clickedMapId}: (${mapCoords.x.toFixed(0)}, ${mapCoords.y.toFixed(0)})`;
+
+                        // Enable Find Path button if both points are set
+                        if (state.startPoint) {
+                            document.getElementById('findPathBtn').disabled = false;
+                        }
+                        draw();
+                    }
+                }
+
+                e.preventDefault();
+                return;
+            }
+
+            // Normal panning behavior
+            if (e.button === 2 || e.button === 1 || e.button === 0) {
+                state.isDragging = true;
+                state.lastX = e.clientX;
+                state.lastY = e.clientY;
+                e.preventDefault();
+            }
+        }
+
+        function handleMouseMove(e) {
+            const rect = state.canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            const worldPos = screenToWorld(screenX, screenY);
+
+            state.mouseWorldPos = worldPos;
+
+            // Find which map the mouse is over and convert to map coordinates
+            let mapCoordText = 'Map: N/A';
+            let candidateMaps = [];
+
+            // First, find all maps that contain this world position
+            for (const [mapId, mapInfo] of state.maps) {
+                const data = mapInfo.data;
+                if (data.world_map_bounds) {
+                    const wb = data.world_map_bounds;
+                    // Check if mouse is within this map's world bounds
+                    if (worldPos.x >= wb.min_x && worldPos.x <= wb.max_x &&
+                        worldPos.y >= wb.min_y && worldPos.y <= wb.max_y) {
+                        candidateMaps.push({ mapId, mapInfo });
+                    }
+                }
+            }
+
+            // If multiple maps overlap, choose the one that has points near the mouse position
+            if (candidateMaps.length > 0) {
+                let bestMap = null;
+                let closestDistance = Infinity;
+
+                // Find the map with the closest point to the mouse position
+                for (const candidate of candidateMaps) {
+                    if (candidate.mapInfo.data.points && candidate.mapInfo.data.points.length > 0) {
+                        // Find closest point in this map to the mouse position
+                        const mapCoords = worldToGame(worldPos.x, worldPos.y, candidate.mapInfo);
+
+                        for (const point of candidate.mapInfo.data.points) {
+                            const dx = point[1] - mapCoords.x;
+                            const dy = point[2] - mapCoords.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+
+                            if (distance < closestDistance) {
+                                closestDistance = distance;
+                                bestMap = candidate;
+                            }
+                        }
+                    }
+                }
+
+                // If no map with points, use the first candidate
+                if (!bestMap) {
+                    bestMap = candidateMaps[0];
+                }
+
+                const mapCoords = worldToGame(worldPos.x, worldPos.y, bestMap.mapInfo);
+                mapCoordText = `Map ${bestMap.mapId}: (${mapCoords.x.toFixed(0)}, ${mapCoords.y.toFixed(0)})`;
+            }
+
+            // Format: World coordinates | Map ID: game coordinates
+            const worldText = `World: (${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)})`;
+            document.getElementById('coordsDisplay').textContent = `${worldText} | ${mapCoordText}`;
+
+            if (state.isDragging) {
+                const dx = e.clientX - state.lastX;
+                const dy = e.clientY - state.lastY;
+                state.offsetX += dx;
+                state.offsetY += dy;
+                state.lastX = e.clientX;
+                state.lastY = e.clientY;
+                draw();
+            }
+        }
+
+        function handleMouseUp(e) {
+            state.isDragging = false;
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const oldZoom = state.zoom;
+            state.zoom = Math.max(0.01, Math.min(2, state.zoom * delta));
+
+            const rect = state.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomFactor = state.zoom / oldZoom;
+            state.offsetX = mouseX * (1 - zoomFactor) + state.offsetX * zoomFactor;
+            state.offsetY = mouseY * (1 - zoomFactor) + state.offsetY * zoomFactor;
+
+            document.getElementById('zoomDisplay').textContent = 'Zoom: ' + Math.round(state.zoom * 100) + '%';
+            draw();
+        }
+
+        // Status message
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        // File handling
+        async function handleFolderSelect(event) {
+            const allFiles = Array.from(event.target.files);
+
+            // Create a map of mapId -> file
+            const fileMap = new Map();
+            allFiles.forEach(file => {
+                const mapId = parseInt(file.name.split('_')[0]);
+                if (!isNaN(mapId) && PRE_SEARING_MAPS.includes(mapId)) {
+                    fileMap.set(mapId, file);
+                }
+            });
+
+            const foundCount = fileMap.size;
+            const missingMaps = PRE_SEARING_MAPS.filter(id => !fileMap.has(id));
+
+            document.getElementById('folderStatus').textContent =
+                `Found ${foundCount}/${PRE_SEARING_MAPS.length} Pre-Searing maps` +
+                (missingMaps.length > 0 ? ` (Missing: ${missingMaps.join(', ')})` : '');
+
+            if (foundCount > 0) {
+                showStatus(`Loading ${foundCount} maps...`, 'info');
+                await loadMapsFromFiles(fileMap);
+            } else {
+                showStatus('No Pre-Searing map files found in selected folder', 'error');
+            }
+        }
+
+        async function loadMapsFromFiles(fileMap) {
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Load maps in order
+            for (const mapId of PRE_SEARING_MAPS) {
+                const file = fileMap.get(mapId);
+                if (!file) continue;
+
+                try {
+                    await loadMapFromFile(file, mapId);
+                    successCount++;
+                } catch (error) {
+                    console.error(`Failed to load map ${mapId}:`, error);
+                    errorCount++;
+                }
+                updateMapList();
+            }
+
+            calculateWorldBounds();
+            centerView();
+            updateStats();
+            draw();
+
+            document.getElementById('clearButton').disabled = false;
+            document.getElementById('analyzeButton').disabled = false;
+
+            if (errorCount === 0) {
+                showStatus(`Successfully loaded all ${successCount} maps!`, 'success');
+            } else {
+                showStatus(`Loaded ${successCount} maps, ${errorCount} failed`, 'error');
+            }
+        }
+
+        async function loadMapFromFile(file, mapId) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        state.maps.set(mapId, {
+                            id: mapId,
+                            data: data,
+                            status: 'loaded'
+                        });
+
+                        resolve(data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+
+
+        function calculateWorldBounds() {
+            if (state.maps.size === 0) return;
+
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
+
+            state.maps.forEach((mapInfo) => {
+                const bounds = mapInfo.data.world_map_bounds;
+                if (bounds) {
+                    minX = Math.min(minX, bounds.min_x);
+                    minY = Math.min(minY, bounds.min_y);
+                    maxX = Math.max(maxX, bounds.max_x);
+                    maxY = Math.max(maxY, bounds.max_y);
+                }
+            });
+
+            state.worldBounds = { minX, minY, maxX, maxY };
+        }
+
+        function centerView() {
+            if (!state.worldBounds) return;
+
+            const worldWidth = state.worldBounds.maxX - state.worldBounds.minX;
+            const worldHeight = state.worldBounds.maxY - state.worldBounds.minY;
+            const worldCenterX = (state.worldBounds.minX + state.worldBounds.maxX) / 2;
+            const worldCenterY = (state.worldBounds.minY + state.worldBounds.maxY) / 2;
+
+            // Calculate zoom to fit
+            const zoomX = state.canvas.width / worldWidth;
+            const zoomY = state.canvas.height / worldHeight;
+            state.zoom = Math.min(zoomX, zoomY) * 0.9;
+
+            // Center the view
+            state.offsetX = state.canvas.width / 2 - worldCenterX * state.zoom;
+            state.offsetY = state.canvas.height / 2 - worldCenterY * state.zoom;
+
+            document.getElementById('zoomDisplay').textContent = 'Zoom: ' + Math.round(state.zoom * 100) + '%';
+        }
+
+        function clearAll() {
+            state.maps.clear();
+            state.worldBounds = null;
+            updateMapList();
+            updateStats();
+            draw();
+            document.getElementById('clearButton').disabled = true;
+            showStatus('All maps cleared', 'info');
+        }
+
+        function updateMapList() {
+            const mapList = document.getElementById('mapList');
+
+            mapList.innerHTML = '';
+
+            PRE_SEARING_MAPS.forEach(mapId => {
+                const mapInfo = state.maps.get(mapId);
+                const div = document.createElement('div');
+                div.className = 'map-item';
+
+                if (mapInfo) {
+                    div.className += ' loaded';
+                    div.textContent = `Map ${mapId}: ${mapInfo.data.map_name || 'Unknown'}`;
+                } else {
+                    div.textContent = `Map ${mapId}: Not loaded`;
+                }
+
+                mapList.appendChild(div);
+            });
+        }
+
+        function updateStats() {
+            let totalPoints = 0;
+            let totalEdges = 0;
+            let totalTeleports = 0;
+
+            state.maps.forEach((mapInfo) => {
+                totalPoints += mapInfo.data.points?.length || 0;
+                totalTeleports += mapInfo.data.teleports?.length || 0;
+                if (mapInfo.data.vis_graph) {
+                    mapInfo.data.vis_graph.forEach(edges => {
+                        totalEdges += edges.length;
+                    });
+                }
+            });
+
+            document.getElementById('mapsLoaded').textContent = state.maps.size;
+            document.getElementById('totalPoints').textContent = totalPoints;
+            document.getElementById('totalEdges').textContent = totalEdges;
+            document.getElementById('totalTeleports').textContent = totalTeleports;
+            document.getElementById('statsBox').style.display = 'block';
+        }
+
+        // Drawing
+        function draw() {
+            const ctx = state.ctx;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, state.canvas.width, state.canvas.height);
+
+            if (state.maps.size === 0) {
+                ctx.fillStyle = '#666';
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Click "Load All Maps" to begin', state.canvas.width / 2, state.canvas.height / 2);
+                return;
+            }
+
+            // Draw all elements in proper z-order (back to front)
+            // Layer 1: Grid (background)
+            if (state.options.showGrid) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.grid) {
+                        drawGrid(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 2: Trapezoids
+            if (state.options.showTrapezoids) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.trapezoids) {
+                        drawTrapezoids(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 3: Visibility graph
+            if (state.options.showVisGraph) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.vis_graph && mapInfo.data.points) {
+                        drawVisibilityGraph(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 4: Points
+            if (state.options.showPoints) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.points) {
+                        drawPoints(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 5: Teleports
+            if (state.options.showTeleports) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.teleports) {
+                        drawTeleports(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 6: Travel portals
+            if (state.options.showPortals) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.travel_portals) {
+                        drawTravelPortals(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 7: NPC Travel
+            if (state.options.showNpcTravel) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.npc_travel) {
+                        drawNpcTravel(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 8: Enter Travel
+            if (state.options.showEnterTravel) {
+                state.maps.forEach((mapInfo) => {
+                    if (mapInfo.data.enter_travel) {
+                        drawEnterTravel(mapInfo.data, mapInfo);
+                    }
+                });
+            }
+
+            // Layer 9: Portal connections between maps
+            if (state.options.showPortalConnections) {
+                drawPortalConnections();
+            }
+
+            // Layer 10: Map boundaries and names (top layer)
+            state.maps.forEach((mapInfo) => {
+                const contentBounds = calculateContentBounds(mapInfo.data, mapInfo);
+                if (contentBounds) {
+                    // Draw map boundary if enabled
+                    if (state.options.showMapBounds) {
+                        drawMapBoundary(contentBounds, null); // Don't draw name here
+                    }
+                    // Always draw map name if enabled (independent of boundaries)
+                    if (state.options.showMapNames) {
+                        drawMapName(contentBounds, mapInfo.data.map_name);
+                    }
+                }
+            });
+
+            // Layer 11: Draw start and end points (top layer)
+            if (state.startPoint) {
+                const startScreenPos = worldToScreen(state.startPoint.worldX, state.startPoint.worldY);
+                ctx.fillStyle = '#4a90e2';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(startScreenPos.x, startScreenPos.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw "S" label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('S', startScreenPos.x, startScreenPos.y);
+            }
+
+            if (state.endPoint) {
+                const endScreenPos = worldToScreen(state.endPoint.worldX, state.endPoint.worldY);
+                ctx.fillStyle = '#ff6b6b';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(endScreenPos.x, endScreenPos.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw "E" label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('E', endScreenPos.x, endScreenPos.y);
+            }
+
+            // Layer 12: Draw the path if it exists
+            if (state.currentPath) {
+                drawPath(state.currentPath);
+            }
+        }
+
+        function calculateContentBounds(data, mapInfo) {
+            try {
+                let minX = Infinity, minY = Infinity;
+                let maxX = -Infinity, maxY = -Infinity;
+                let hasContent = false;
+
+                // Include points (format: [id, x, y, flags])
+                if (data.points && data.points.length > 0) {
+                    data.points.forEach(point => {
+                        if (point && point.length >= 3) {
+                            const worldPos = gameToWorld(point[1], point[2], mapInfo);
+                            if (worldPos && isFinite(worldPos.x) && isFinite(worldPos.y)) {
+                                minX = Math.min(minX, worldPos.x);
+                                minY = Math.min(minY, worldPos.y);
+                                maxX = Math.max(maxX, worldPos.x);
+                                maxY = Math.max(maxY, worldPos.y);
+                                hasContent = true;
+                            }
+                        }
+                    });
+                }
+
+                // Don't process vis_graph for now, just use points
+
+                if (!hasContent) {
+                    return null;
+                }
+
+                // Add a small padding
+                const paddingX = (maxX - minX) * 0.05 || 100;
+                const paddingY = (maxY - minY) * 0.05 || 100;
+
+                return {
+                    min_x: minX - paddingX,
+                    min_y: minY - paddingY,
+                    max_x: maxX + paddingX,
+                    max_y: maxY + paddingY
+                };
+            } catch (error) {
+                console.error('Error calculating content bounds:', error);
+                return null;
+            }
+        }
+
+        function drawMapBoundary(bounds) {
+            const ctx = state.ctx;
+            const topLeft = worldToScreen(bounds.min_x, bounds.min_y);
+            const bottomRight = worldToScreen(bounds.max_x, bounds.max_y);
+
+            ctx.strokeStyle = '#4a90e2';
+            ctx.lineWidth = 2;
+
+            ctx.strokeRect(
+                topLeft.x,
+                topLeft.y,
+                bottomRight.x - topLeft.x,
+                bottomRight.y - topLeft.y
+            );
+        }
+
+        function drawMapName(bounds, mapName) {
+            if (!mapName) return;
+
+            const ctx = state.ctx;
+            const topLeft = worldToScreen(bounds.min_x, bounds.min_y);
+            const bottomRight = worldToScreen(bounds.max_x, bounds.max_y);
+
+            ctx.fillStyle = '#4a90e2';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(mapName, (topLeft.x + bottomRight.x) / 2, topLeft.y - 5);
+        }
+
+        function drawPoints(data, mapInfo) {
+            const ctx = state.ctx;
+            data.points.forEach((point) => {
+                const worldPos = gameToWorld(point[1], point[2], mapInfo);
+                const pos = worldToScreen(worldPos.x, worldPos.y);
+                ctx.fillStyle = '#4a90e2';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, state.options.pointSize, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawVisibilityGraph(data, mapInfo) {
+            const ctx = state.ctx;
+            ctx.strokeStyle = 'rgba(255, 200, 0, 0.2)';
+            ctx.lineWidth = state.options.lineThickness;
+
+            data.vis_graph.forEach((edges, fromIdx) => {
+                if (fromIdx >= data.points.length) return;
+                const fromPoint = data.points[fromIdx];
+                if (!fromPoint) return;
+                const fromWorld = gameToWorld(fromPoint[1], fromPoint[2], mapInfo);
+                const fromPos = worldToScreen(fromWorld.x, fromWorld.y);
+
+                edges.forEach(edge => {
+                    if (!edge || edge.length < 2) return;
+                    const toIdx = edge[0];
+                    if (toIdx < 0 || toIdx >= data.points.length) return;
+
+                    const toPoint = data.points[toIdx];
+                    if (!toPoint) return;
+                    const toWorld = gameToWorld(toPoint[1], toPoint[2], mapInfo);
+                    const toPos = worldToScreen(toWorld.x, toWorld.y);
+
+                    ctx.beginPath();
+                    ctx.moveTo(fromPos.x, fromPos.y);
+                    ctx.lineTo(toPos.x, toPos.y);
+                    ctx.stroke();
+                });
+            });
+        }
+
+        function drawTeleports(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.teleports) return;
+
+            data.teleports.forEach((tp) => {
+                const enterWorld = gameToWorld(tp[0], tp[1], mapInfo);
+                const exitWorld = gameToWorld(tp[3], tp[4], mapInfo);
+                const enterPos = worldToScreen(enterWorld.x, enterWorld.y);
+                const exitPos = worldToScreen(exitWorld.x, exitWorld.y);
+
+                // Violet color for teleports
+                ctx.fillStyle = '#9400d3';
+                ctx.beginPath();
+                ctx.arc(enterPos.x, enterPos.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(exitPos.x, exitPos.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw connection line with dashes
+                ctx.strokeStyle = '#9400d3';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(enterPos.x, enterPos.y);
+                ctx.lineTo(exitPos.x, exitPos.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+        }
+
+        function drawNpcTravel(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.npc_travel) return;
+
+            // Format: [x, y, npcId, unk1, unk2, unk3, unk4, targetMapId, targetX, targetY]
+            data.npc_travel.forEach((npc) => {
+                const worldPos = gameToWorld(npc[0], npc[1], mapInfo);
+                const pos = worldToScreen(worldPos.x, worldPos.y);
+
+                // Draw NPC travel point as a green circle
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw border
+                ctx.strokeStyle = '#00cc00';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function drawEnterTravel(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.enter_travel) return;
+
+            // Format: similar to npc_travel
+            data.enter_travel.forEach((enter) => {
+                const worldPos = gameToWorld(enter[0], enter[1], mapInfo);
+                const pos = worldToScreen(worldPos.x, worldPos.y);
+
+                // Draw enter travel point as a pink/rose diamond
+                ctx.fillStyle = '#ff69b4';
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y - 6);
+                ctx.lineTo(pos.x + 6, pos.y);
+                ctx.lineTo(pos.x, pos.y + 6);
+                ctx.lineTo(pos.x - 6, pos.y);
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw border
+                ctx.strokeStyle = '#ff1493';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function drawTravelPortals(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.travel_portals) return;
+
+            data.travel_portals.forEach((portal) => {
+                const worldPos = gameToWorld(portal[0], portal[1], mapInfo);
+                const pos = worldToScreen(worldPos.x, worldPos.y);
+                const connections = portal[2] || [];
+
+                // Cyan color for travel portals
+                ctx.fillStyle = '#00ffff';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawGrid(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.grid || !data.grid.cells) return;
+
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+            ctx.lineWidth = 1;
+
+            // Draw grid cells
+            data.grid.cells.forEach((cell) => {
+                if (!cell || cell.length < 4) return;
+
+                const minWorld = gameToWorld(cell[0], cell[1], mapInfo);
+                const maxWorld = gameToWorld(cell[2], cell[3], mapInfo);
+                const topLeft = worldToScreen(minWorld.x, minWorld.y);
+                const bottomRight = worldToScreen(maxWorld.x, maxWorld.y);
+
+                ctx.strokeRect(
+                    topLeft.x,
+                    topLeft.y,
+                    bottomRight.x - topLeft.x,
+                    bottomRight.y - topLeft.y
+                );
+            });
+        }
+
+        function drawTrapezoids(data, mapInfo) {
+            const ctx = state.ctx;
+            if (!data.trapezoids) return;
+
+            data.trapezoids.forEach((trap) => {
+                if (!trap || trap.length < 10) return;
+
+                // Format: [id, layer, x1, y1, x2, y2, x3, y3, x4, y4]
+                const layer = trap[1];
+                const points = [];
+
+                // Convert all 4 corner points from game to world to screen coordinates
+                for (let i = 2; i < 10; i += 2) {
+                    const worldPos = gameToWorld(trap[i], trap[i + 1], mapInfo);
+                    const screenPos = worldToScreen(worldPos.x, worldPos.y);
+                    points.push(screenPos);
+                }
+
+                // Draw trapezoid with different color based on layer
+                const color = layer > 0 ? 'rgba(139, 26, 26, 0.3)' : 'rgba(80, 80, 80, 0.3)';
+                const strokeColor = layer > 0 ? 'rgba(139, 26, 26, 0.6)' : 'rgba(80, 80, 80, 0.6)';
+
+                ctx.fillStyle = color;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function drawPortalConnections() {
+            const ctx = state.ctx;
+
+            // Draw Travel Portal connections (cyan)
+            state.maps.forEach((sourceMapInfo, sourceMapId) => {
+                const sourceData = sourceMapInfo.data;
+                if (!sourceData.travel_portals) return;
+
+                sourceData.travel_portals.forEach((portal) => {
+                    const portalX = portal[0];
+                    const portalY = portal[1];
+                    const connections = portal[2] || [];
+
+                    const sourceWorldPos = gameToWorld(portalX, portalY, sourceMapInfo);
+                    const sourceScreenPos = worldToScreen(sourceWorldPos.x, sourceWorldPos.y);
+
+                    connections.forEach((connection) => {
+                        const targetMapId = connection[0];
+                        const targetX = connection[1];
+                        const targetY = connection[2];
+
+                        const targetMapInfo = state.maps.get(targetMapId);
+                        if (!targetMapInfo) return;
+
+                        const targetWorldPos = gameToWorld(targetX, targetY, targetMapInfo);
+                        const targetScreenPos = worldToScreen(targetWorldPos.x, targetWorldPos.y);
+
+                        // Cyan dashed line for travel portals
+                        ctx.strokeStyle = '#00ffff';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(sourceScreenPos.x, sourceScreenPos.y);
+                        ctx.lineTo(targetScreenPos.x, targetScreenPos.y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    });
+                });
+            });
+
+            // Draw NPC Travel connections (green)
+            state.maps.forEach((sourceMapInfo, sourceMapId) => {
+                const sourceData = sourceMapInfo.data;
+                if (!sourceData.npc_travel) return;
+
+                sourceData.npc_travel.forEach((npc) => {
+                    const sourceX = npc[0];
+                    const sourceY = npc[1];
+                    const targetMapId = npc[7];
+                    const targetX = npc[8];
+                    const targetY = npc[9];
+
+                    const targetMapInfo = state.maps.get(targetMapId);
+                    if (!targetMapInfo) return;
+
+                    const sourceWorldPos = gameToWorld(sourceX, sourceY, sourceMapInfo);
+                    const sourceScreenPos = worldToScreen(sourceWorldPos.x, sourceWorldPos.y);
+
+                    const targetWorldPos = gameToWorld(targetX, targetY, targetMapInfo);
+                    const targetScreenPos = worldToScreen(targetWorldPos.x, targetWorldPos.y);
+
+                    // Green dashed line for NPC travel
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(sourceScreenPos.x, sourceScreenPos.y);
+                    ctx.lineTo(targetScreenPos.x, targetScreenPos.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+            });
+
+            // Draw Enter Travel connections (pink/rose)
+            state.maps.forEach((sourceMapInfo, sourceMapId) => {
+                const sourceData = sourceMapInfo.data;
+                if (!sourceData.enter_travel) return;
+
+                sourceData.enter_travel.forEach((enter) => {
+                    const sourceX = enter[0];
+                    const sourceY = enter[1];
+                    const targetMapId = enter[7];
+                    const targetX = enter[8];
+                    const targetY = enter[9];
+
+                    const targetMapInfo = state.maps.get(targetMapId);
+                    if (!targetMapInfo) return;
+
+                    const sourceWorldPos = gameToWorld(sourceX, sourceY, sourceMapInfo);
+                    const sourceScreenPos = worldToScreen(sourceWorldPos.x, sourceWorldPos.y);
+
+                    const targetWorldPos = gameToWorld(targetX, targetY, targetMapInfo);
+                    const targetScreenPos = worldToScreen(targetWorldPos.x, targetWorldPos.y);
+
+                    // Pink dashed line for enter travel
+                    ctx.strokeStyle = '#ff69b4';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(sourceScreenPos.x, sourceScreenPos.y);
+                    ctx.lineTo(targetScreenPos.x, targetScreenPos.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+            });
+        }
+
+
+        function analyzePortalAlignment() {
+            console.log('=== Portal Alignment Analysis ===');
+
+            const misalignments = [];
+
+            // Analyze all portal connections
+            state.maps.forEach((sourceMapInfo, sourceMapId) => {
+                const sourceData = sourceMapInfo.data;
+                if (!sourceData.travel_portals) return;
+
+                sourceData.travel_portals.forEach((portal) => {
+                    const portalX = portal[0];
+                    const portalY = portal[1];
+                    const connections = portal[2] || [];
+
+                    const sourceWorldPos = gameToWorld(portalX, portalY, sourceMapInfo);
+
+                    connections.forEach((connection) => {
+                        const targetMapId = connection[0];
+                        const targetX = connection[1];
+                        const targetY = connection[2];
+
+                        const targetMapInfo = state.maps.get(targetMapId);
+                        if (!targetMapInfo) return;
+
+                        const targetWorldPos = gameToWorld(targetX, targetY, targetMapInfo);
+
+                        // Calculate misalignment
+                        const dx = targetWorldPos.x - sourceWorldPos.x;
+                        const dy = targetWorldPos.y - sourceWorldPos.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance > 0.1) { // Threshold for considering it misaligned
+                            misalignments.push({
+                                sourceMapId,
+                                targetMapId,
+                                sourceGamePos: { x: portalX, y: portalY },
+                                targetGamePos: { x: targetX, y: targetY },
+                                sourceWorldPos,
+                                targetWorldPos,
+                                offset: { x: dx, y: dy },
+                                distance
+                            });
+
+                            console.log(`Map ${sourceMapId} -> Map ${targetMapId}:`);
+                            console.log(`  Source game: (${portalX.toFixed(0)}, ${portalY.toFixed(0)}) -> world: (${sourceWorldPos.x.toFixed(3)}, ${sourceWorldPos.y.toFixed(3)})`);
+                            console.log(`  Target game: (${targetX.toFixed(0)}, ${targetY.toFixed(0)}) -> world: (${targetWorldPos.x.toFixed(3)}, ${targetWorldPos.y.toFixed(3)})`);
+                            console.log(`  Misalignment: (${dx.toFixed(3)}, ${dy.toFixed(3)}) distance: ${distance.toFixed(3)}`);
+                        }
+                    });
+                });
+            });
+
+            if (misalignments.length === 0) {
+                console.log('All portals are perfectly aligned!');
+                showStatus('All portals are perfectly aligned!', 'success');
+            } else {
+                console.log(`\nFound ${misalignments.length} misaligned portal connections`);
+                console.log('\n=== Suggested Corrections ===');
+
+                // Calculate suggested corrections for each map
+                const corrections = new Map();
+
+                misalignments.forEach(mis => {
+                    if (!corrections.has(mis.targetMapId)) {
+                        corrections.set(mis.targetMapId, { offsetX: [], offsetY: [] });
+                    }
+                    corrections.get(mis.targetMapId).offsetX.push(-mis.offset.x);
+                    corrections.get(mis.targetMapId).offsetY.push(-mis.offset.y);
+                });
+
+                corrections.forEach((offsets, mapId) => {
+                    const avgOffsetX = offsets.offsetX.reduce((a, b) => a + b, 0) / offsets.offsetX.length;
+                    const avgOffsetY = offsets.offsetY.reduce((a, b) => a + b, 0) / offsets.offsetY.length;
+
+                    const mapInfo = state.maps.get(mapId);
+                    if (!mapInfo || !mapInfo.data.world_map_bounds) return;
+
+                    const currentBounds = mapInfo.data.world_map_bounds;
+
+                    console.log(`\nMap ${mapId} (${mapInfo.data.map_name}):`);
+                    console.log(`  Current world_map_bounds: min_x: ${currentBounds.min_x}, min_y: ${currentBounds.min_y}, max_x: ${currentBounds.max_x}, max_y: ${currentBounds.max_y}`);
+                    console.log(`  Suggested offset: (${avgOffsetX.toFixed(3)}, ${avgOffsetY.toFixed(3)})`);
+                    console.log(`  New world_map_bounds: min_x: ${(currentBounds.min_x + avgOffsetX).toFixed(3)}, min_y: ${(currentBounds.min_y + avgOffsetY).toFixed(3)}, max_x: ${(currentBounds.max_x + avgOffsetX).toFixed(3)}, max_y: ${(currentBounds.max_y + avgOffsetY).toFixed(3)}`);
+                });
+
+                showStatus(`Found ${misalignments.length} misaligned connections. Check console for details.`, 'info');
+            }
+
+            console.log('\n=== End of Analysis ===');
+        }
+
+        // ========== Pathfinding Helper Functions ==========
+
+        // Min-Priority Queue implementation for A*
+        class MinPriorityQueue {
+            constructor() {
+                this.heap = [];
+            }
+
+            push(item, priority) {
+                const node = { item, priority };
+                this.heap.push(node);
+                this._bubbleUp(this.heap.length - 1);
+            }
+
+            pop() {
+                if (this.heap.length === 0) return null;
+                if (this.heap.length === 1) return this.heap.pop().item;
+
+                const min = this.heap[0];
+                this.heap[0] = this.heap.pop();
+                this._bubbleDown(0);
+                return min.item;
+            }
+
+            isEmpty() {
+                return this.heap.length === 0;
+            }
+
+            _bubbleUp(index) {
+                while (index > 0) {
+                    const parentIndex = Math.floor((index - 1) / 2);
+                    if (this.heap[parentIndex].priority <= this.heap[index].priority) break;
+
+                    [this.heap[parentIndex], this.heap[index]] = [this.heap[index], this.heap[parentIndex]];
+                    index = parentIndex;
+                }
+            }
+
+            _bubbleDown(index) {
+                while (true) {
+                    let smallest = index;
+                    const leftChild = 2 * index + 1;
+                    const rightChild = 2 * index + 2;
+
+                    if (leftChild < this.heap.length && this.heap[leftChild].priority < this.heap[smallest].priority) {
+                        smallest = leftChild;
+                    }
+                    if (rightChild < this.heap.length && this.heap[rightChild].priority < this.heap[smallest].priority) {
+                        smallest = rightChild;
+                    }
+
+                    if (smallest === index) break;
+
+                    [this.heap[smallest], this.heap[index]] = [this.heap[index], this.heap[smallest]];
+                    index = smallest;
+                }
+            }
+        }
+
+        // Create a temporary point and insert it into the visibility graph
+        function createTemporaryPoint(x, y, mapData) {
+            const tempPoint = [9999999, x, y, 0]; // Temporary ID
+            return tempPoint;
+        }
+
+        // Check if a point is inside a trapezoid (AABB)
+        function isPointInTrapezoid(x, y, trap) {
+            return x >= trap.min_x && x <= trap.max_x &&
+                   y >= trap.min_y && y <= trap.max_y;
+        }
+
+        // Simple line of sight check
+        function hasLineOfSight(x1, y1, x2, y2, mapData) {
+            // Simplified: use distance-based check
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < 5000; // Same as PathfindingViewer.html
+        }
+
+        // Insert a point into the visibility graph temporarily
+        function insertPointIntoVisGraph(point, pointId, mapData) {
+            const pointX = point[1];
+            const pointY = point[2];
+            const maxConnections = 8;
+            const maxRange = 5000;
+
+            // Initialize vis_graph entry for this point
+            if (!mapData.vis_graph[pointId]) {
+                mapData.vis_graph[pointId] = [];
+            }
+
+            // Find nearby points and check line of sight
+            const connections = [];
+            if (mapData.points) {
+                mapData.points.forEach((otherPoint, index) => {
+                    const otherX = otherPoint[1];
+                    const otherY = otherPoint[2];
+
+                    const dx = otherX - pointX;
+                    const dy = otherY - pointY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < maxRange && distance > 0) {
+                        connections.push({ id: index, distance: distance });
+                    }
+                });
+            }
+
+            // Sort by distance and take closest connections
+            connections.sort((a, b) => a.distance - b.distance);
+            const toConnect = connections.slice(0, maxConnections);
+
+            // Add bidirectional edges (format: [pointId, distance])
+            for (const conn of toConnect) {
+                mapData.vis_graph[pointId].push([conn.id, conn.distance]);
+                if (!mapData.vis_graph[conn.id]) {
+                    mapData.vis_graph[conn.id] = [];
+                }
+                mapData.vis_graph[conn.id].push([pointId, conn.distance]);
+            }
+        }
+
+        // Calculate Euclidean distance
+        function getDistance(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Heuristic function for A* (Euclidean distance)
+        function heuristic(x1, y1, x2, y2) {
+            return getDistance(x1, y1, x2, y2);
+        }
+
+        // A* pathfinding algorithm for a single map
+        function aStarSearch(startX, startY, endX, endY, mapData) {
+            console.log('aStarSearch called with:', { startX, startY, endX, endY });
+            console.log('Map data:', {
+                pointsCount: mapData.points?.length,
+                visGraphCount: mapData.vis_graph?.length
+            });
+
+            if (!mapData.points || !mapData.vis_graph) {
+                console.error('Map data missing points or vis_graph');
+                return null;
+            }
+
+            // Check for direct line of sight first
+            if (hasLineOfSight(startX, startY, endX, endY, mapData)) {
+                console.log('Direct line of sight found!');
+                return [
+                    { x: startX, y: startY },
+                    { x: endX, y: endY }
+                ];
+            }
+
+            // Create temporary start and end points
+            const startPoint = createTemporaryPoint(startX, startY, mapData);
+            const endPoint = createTemporaryPoint(endX, endY, mapData);
+
+            // Add temporary points to graph
+            const startId = mapData.points.length;
+            const goalId = startId + 1;
+
+            // Insert into visibility graph (modifies mapData.vis_graph)
+            insertPointIntoVisGraph(startPoint, startId, mapData);
+            insertPointIntoVisGraph(endPoint, goalId, mapData);
+
+            console.log('Start connections:', mapData.vis_graph[startId]?.length || 0);
+            console.log('Goal connections:', mapData.vis_graph[goalId]?.length || 0);
+
+            // A* algorithm (using arrays like PathfindingViewer.html)
+            const costSoFar = new Array(mapData.points.length + 2).fill(Infinity);
+            const cameFrom = new Array(mapData.points.length + 2).fill(-1);
+            const openSet = new MinPriorityQueue();
+
+            costSoFar[startId] = 0;
+            cameFrom[startId] = startId;
+            openSet.push(startId, 0);
+
+            let current = -1;
+            let iterations = 0;
+
+            while (!openSet.isEmpty()) {
+                iterations++;
+                current = openSet.pop();
+
+                if (current === goalId) break;
+
+                const edges = mapData.vis_graph[current] || [];
+                for (const edge of edges) {
+                    const pointId = edge[0];
+                    const distance = edge[1];
+
+                    const newCost = costSoFar[current] + distance;
+                    if (newCost < costSoFar[pointId]) {
+                        costSoFar[pointId] = newCost;
+                        cameFrom[pointId] = current;
+
+                        // Calculate priority with heuristic
+                        const point = pointId < mapData.points.length
+                            ? mapData.points[pointId]
+                            : (pointId === goalId ? endPoint : startPoint);
+
+                        const pointX = point[1];
+                        const pointY = point[2];
+                        const heuristicCost = getDistance(pointX, pointY, endX, endY);
+                        const priority = newCost + heuristicCost;
+
+                        openSet.push(pointId, priority);
+                    }
+                }
+            }
+
+            console.log('A* completed after', iterations, 'iterations');
+
+            // Clean up temporary points from vis_graph
+            if (mapData.vis_graph[startId]) {
+                for (const edge of mapData.vis_graph[startId]) {
+                    const otherEdges = mapData.vis_graph[edge[0]];
+                    if (otherEdges) {
+                        const idx = otherEdges.findIndex(e => e[0] === startId);
+                        if (idx >= 0) otherEdges.splice(idx, 1);
+                    }
+                }
+                mapData.vis_graph[startId] = [];
+            }
+
+            if (mapData.vis_graph[goalId]) {
+                for (const edge of mapData.vis_graph[goalId]) {
+                    const otherEdges = mapData.vis_graph[edge[0]];
+                    if (otherEdges) {
+                        const idx = otherEdges.findIndex(e => e[0] === goalId);
+                        if (idx >= 0) otherEdges.splice(idx, 1);
+                    }
+                }
+                mapData.vis_graph[goalId] = [];
+            }
+
+            // Build path
+            if (current === goalId) {
+                const path = [];
+                let curr = goalId;
+                let pathLength = 0;
+
+                while (curr !== startId) {
+                    const point = curr < mapData.points.length
+                        ? mapData.points[curr]
+                        : (curr === goalId ? endPoint : startPoint);
+                    path.unshift({
+                        x: point[1],
+                        y: point[2]
+                    });
+                    curr = cameFrom[curr];
+                    pathLength++;
+
+                    // Safety check
+                    if (pathLength > mapData.points.length * 2) {
+                        console.error('Path reconstruction appears to be in a cycle');
+                        return null;
+                    }
+                }
+                path.unshift({ x: startX, y: startY });
+
+                console.log('Path found with', path.length, 'waypoints');
+                return path;
+            }
+
+            console.log('No path found');
+            return null;
+        }
+
+        // Main pathfinding function
+        function findPath() {
+            if (!state.startPoint || !state.endPoint) {
+                showStatus('Please set both start and end points', 'error');
+                return;
+            }
+
+            // Start timing
+            const startTime = performance.now();
+
+            const startMapId = state.startPoint.mapId;
+            const endMapId = state.endPoint.mapId;
+
+            // Same map pathfinding
+            if (startMapId === endMapId) {
+                const mapInfo = state.maps.get(startMapId);
+                if (!mapInfo) {
+                    showStatus('Map not found', 'error');
+                    return;
+                }
+
+                const path = aStarSearch(
+                    state.startPoint.x,
+                    state.startPoint.y,
+                    state.endPoint.x,
+                    state.endPoint.y,
+                    mapInfo.data
+                );
+
+                if (path) {
+                    // Store raw computed path in GAME coordinates
+                    state.computedPath = path;
+
+                    // Calculate total cost using GAME coordinates
+                    let totalCost = 0;
+                    for (let i = 1; i < path.length; i++) {
+                        const dx = path[i].x - path[i-1].x;
+                        const dy = path[i].y - path[i-1].y;
+                        totalCost += Math.sqrt(dx * dx + dy * dy);
+                    }
+
+                    // Simplify path based on spacing (using GAME coordinates)
+                    const simplifiedGamePath = simplifyPath(path, state.pathSpacing);
+
+                    // Convert simplified GAME coordinates to WORLD coordinates for display
+                    state.simplifiedPath = simplifiedGamePath.map(p => {
+                        const worldPos = gameToWorld(p.x, p.y, mapInfo);
+                        return { x: worldPos.x, y: worldPos.y };
+                    });
+
+                    // Convert simplified path to segments for rendering
+                    state.currentPath = [{
+                        mapId: startMapId,
+                        points: state.simplifiedPath
+                    }];
+
+                    // End timing
+                    const endTime = performance.now();
+
+                    // Display detailed info
+                    document.getElementById('pathTestInfo').style.display = 'block';
+                    document.getElementById('pathCost').textContent = totalCost.toFixed(2);
+                    document.getElementById('pathRawPoints').textContent = state.computedPath.length;
+                    document.getElementById('pathPoints').textContent = state.simplifiedPath.length;
+                    document.getElementById('pathTime').textContent = (endTime - startTime).toFixed(2) + ' ms';
+
+                    updatePathInfo();
+
+                    document.getElementById('pathStatsDisplay').textContent =
+                        `Path found! ${state.computedPath.length} raw points, ${state.simplifiedPath.length} simplified`;
+                    document.getElementById('clearPathBtn').disabled = false;
+                    showStatus(`Path found in ${(endTime - startTime).toFixed(0)}ms!`, 'success');
+                    draw();
+                } else {
+                    showStatus('No path found', 'error');
+                }
+            } else {
+                // Multi-map pathfinding
+                const pathSegments = findMultiMapPath(state.startPoint, state.endPoint);
+                if (pathSegments && pathSegments.length > 0) {
+                    // Flatten all segments - use GAME coordinates (localPath) for calculations
+                    state.computedPath = [];
+                    let allLocalPaths = [];
+
+                    pathSegments.forEach((segment, idx) => {
+                        console.log(`Segment ${idx} (Map ${segment.mapId}): ${segment.points.length} points`);
+                        // Game coordinates for calculations and display
+                        allLocalPaths.push(...segment.localPath);
+                    });
+                    console.log(`Total points: ${allLocalPaths.length}`);
+
+                    // Store game coordinates as computedPath
+                    state.computedPath = allLocalPaths;
+
+                    // Calculate total path length using GAME coordinates
+                    let totalCost = 0;
+                    for (let i = 1; i < allLocalPaths.length; i++) {
+                        const dx = allLocalPaths[i].x - allLocalPaths[i-1].x;
+                        const dy = allLocalPaths[i].y - allLocalPaths[i-1].y;
+                        totalCost += Math.sqrt(dx * dx + dy * dy);
+                    }
+                    console.log(`Path cost (game coords): ${totalCost.toFixed(2)}`);
+
+                    // Simplify using GAME coordinates
+                    const simplifiedLocal = simplifyPath(allLocalPaths, state.pathSpacing);
+                    console.log(`Simplified from ${allLocalPaths.length} to ${simplifiedLocal.length} points`);
+
+                    // Convert simplified game coordinates back to world coordinates for display
+                    state.simplifiedPath = [];
+                    for (let i = 0; i < simplifiedLocal.length; i++) {
+                        const localPoint = simplifiedLocal[i];
+                        // Find which segment this point belongs to
+                        for (const segment of pathSegments) {
+                            const matchIndex = segment.localPath.findIndex(p =>
+                                Math.abs(p.x - localPoint.x) < 0.01 && Math.abs(p.y - localPoint.y) < 0.01
+                            );
+                            if (matchIndex >= 0) {
+                                state.simplifiedPath.push(segment.points[matchIndex]);
+                                break;
+                            }
+                        }
+                    }
+                    console.log(`Simplified path (world coords): ${state.simplifiedPath.length} points`);
+
+                    // For rendering, use the original segments structure (not simplified for multi-map)
+                    state.currentPath = pathSegments;
+
+                    // End timing
+                    const endTime = performance.now();
+
+                    // Display detailed info
+                    document.getElementById('pathTestInfo').style.display = 'block';
+                    document.getElementById('pathCost').textContent = totalCost.toFixed(2);
+                    document.getElementById('pathRawPoints').textContent = state.computedPath.length;
+                    document.getElementById('pathPoints').textContent = state.simplifiedPath.length;
+                    document.getElementById('pathTime').textContent = (endTime - startTime).toFixed(2) + ' ms';
+
+                    updatePathInfo();
+
+                    document.getElementById('pathStatsDisplay').textContent =
+                        `Path found! ${pathSegments.length} segment(s), ${state.computedPath.length} raw points, ${state.simplifiedPath.length} simplified`;
+                    document.getElementById('clearPathBtn').disabled = false;
+                    showStatus(`Multi-map path found in ${(endTime - startTime).toFixed(0)}ms!`, 'success');
+                    draw();
+                } else {
+                    showStatus('No path found across maps', 'error');
+                }
+            }
+        }
+
+        // Find path across multiple maps using portals
+        function findMultiMapPath(startPoint, endPoint) {
+            const startMapId = startPoint.mapId;
+            const endMapId = endPoint.mapId;
+
+            // Build a graph of map connections via portals
+            const mapGraph = buildMapGraph();
+
+            // Find the sequence of maps to traverse using BFS
+            const mapSequence = findMapSequence(startMapId, endMapId, mapGraph);
+
+            if (!mapSequence || mapSequence.length === 0) {
+                console.error('No map sequence found');
+                return null;
+            }
+
+            console.log('Map sequence:', mapSequence);
+
+            const pathSegments = [];
+
+            // For each pair of consecutive maps in the sequence
+            for (let i = 0; i < mapSequence.length; i++) {
+                const currentMapId = mapSequence[i];
+                const currentMapInfo = state.maps.get(currentMapId);
+
+                if (!currentMapInfo) continue;
+
+                let segmentStart, segmentEnd;
+
+                if (i === 0) {
+                    // First segment: start point to portal
+                    segmentStart = { x: startPoint.x, y: startPoint.y };
+
+                    if (mapSequence.length === 1) {
+                        // Only one map, go directly to end
+                        segmentEnd = { x: endPoint.x, y: endPoint.y };
+                    } else {
+                        // Find portal to next map
+                        const nextMapId = mapSequence[i + 1];
+                        const portal = findPortalToMap(currentMapId, nextMapId);
+                        if (!portal) {
+                            console.error(`No portal found from map ${currentMapId} to ${nextMapId}`);
+                            return null;
+                        }
+                        segmentEnd = { x: portal.sourceX, y: portal.sourceY };
+                    }
+                } else if (i === mapSequence.length - 1) {
+                    // Last segment: portal to end point
+                    const prevMapId = mapSequence[i - 1];
+                    const portal = findPortalToMap(prevMapId, currentMapId);
+                    if (!portal) {
+                        console.error(`No portal found from map ${prevMapId} to ${currentMapId}`);
+                        return null;
+                    }
+                    segmentStart = { x: portal.targetX, y: portal.targetY };
+                    segmentEnd = { x: endPoint.x, y: endPoint.y };
+                } else {
+                    // Middle segment: portal to portal
+                    const prevMapId = mapSequence[i - 1];
+                    const nextMapId = mapSequence[i + 1];
+
+                    const portalFrom = findPortalToMap(prevMapId, currentMapId);
+                    const portalTo = findPortalToMap(currentMapId, nextMapId);
+
+                    if (!portalFrom || !portalTo) {
+                        console.error(`Portals not found for middle segment on map ${currentMapId}`);
+                        return null;
+                    }
+
+                    segmentStart = { x: portalFrom.targetX, y: portalFrom.targetY };
+                    segmentEnd = { x: portalTo.sourceX, y: portalTo.sourceY };
+                }
+
+                // Find path within this map
+                const localPath = aStarSearch(
+                    segmentStart.x,
+                    segmentStart.y,
+                    segmentEnd.x,
+                    segmentEnd.y,
+                    currentMapInfo.data
+                );
+
+                if (!localPath) {
+                    console.error(`No path found on map ${currentMapId}`);
+                    return null;
+                }
+
+                // Convert to world coordinates
+                const worldPath = localPath.map(p => {
+                    const worldPos = gameToWorld(p.x, p.y, currentMapInfo);
+                    return { x: worldPos.x, y: worldPos.y };
+                });
+
+                pathSegments.push({
+                    mapId: currentMapId,
+                    points: worldPath,
+                    localPath: localPath
+                });
+            }
+
+            return pathSegments;
+        }
+
+        // Build a BIDIRECTIONAL graph of map connections
+        function buildMapGraph() {
+            const graph = new Map();
+
+            // Initialize all map entries
+            state.maps.forEach((mapInfo, mapId) => {
+                graph.set(mapId, new Set());
+            });
+
+            // Add all connections (and create reverse connections automatically)
+            state.maps.forEach((mapInfo, mapId) => {
+                const data = mapInfo.data;
+
+                // Check travel_portals
+                if (data.travel_portals) {
+                    data.travel_portals.forEach(portal => {
+                        const targets = portal[2] || [];
+                        targets.forEach(target => {
+                            const targetMapId = target[0];
+                            // Add forward connection
+                            graph.get(mapId).add(targetMapId);
+                            // Add reverse connection (bidirectional)
+                            if (graph.has(targetMapId)) {
+                                graph.get(targetMapId).add(mapId);
+                            }
+                        });
+                    });
+                }
+
+                // Check npc_travel
+                if (data.npc_travel) {
+                    data.npc_travel.forEach(npc => {
+                        const targetMapId = npc[7];
+                        if (targetMapId) {
+                            // Add forward connection
+                            graph.get(mapId).add(targetMapId);
+                            // Add reverse connection (bidirectional)
+                            if (graph.has(targetMapId)) {
+                                graph.get(targetMapId).add(mapId);
+                            }
+                        }
+                    });
+                }
+
+                // Check enter_travel
+                if (data.enter_travel) {
+                    data.enter_travel.forEach(enter => {
+                        const targetMapId = enter[7];
+                        if (targetMapId) {
+                            // Add forward connection
+                            graph.get(mapId).add(targetMapId);
+                            // Add reverse connection (bidirectional)
+                            if (graph.has(targetMapId)) {
+                                graph.get(targetMapId).add(mapId);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Convert Sets to Arrays
+            const result = new Map();
+            graph.forEach((connections, mapId) => {
+                result.set(mapId, Array.from(connections));
+            });
+
+            return result;
+        }
+
+        // Find ALL possible sequences of maps using BFS, then choose the shortest distance
+        function findMapSequence(startMapId, endMapId, mapGraph) {
+            if (startMapId === endMapId) {
+                return [startMapId];
+            }
+
+            const queue = [[startMapId]];
+            const visited = new Set([startMapId]);
+            const allPaths = [];
+
+            // Find all possible paths (up to a reasonable limit)
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const currentMapId = path[path.length - 1];
+
+                const neighbors = mapGraph.get(currentMapId) || [];
+
+                for (const neighborMapId of neighbors) {
+                    if (neighborMapId === endMapId) {
+                        // Found a complete path
+                        allPaths.push([...path, neighborMapId]);
+                        continue; // Keep searching for other paths
+                    }
+
+                    if (!visited.has(neighborMapId)) {
+                        visited.add(neighborMapId);
+                        queue.push([...path, neighborMapId]);
+                    }
+                }
+            }
+
+            if (allPaths.length === 0) {
+                return null; // No path found
+            }
+
+            // If only one path, return it
+            if (allPaths.length === 1) {
+                console.log('Only one path found:', allPaths[0]);
+                return allPaths[0];
+            }
+
+            // Multiple paths found - choose the one with shortest total distance
+            console.log(`Found ${allPaths.length} possible paths, evaluating distances...`);
+
+            let shortestPath = null;
+            let shortestDistance = Infinity;
+
+            for (const mapSequence of allPaths) {
+                const distance = estimatePathDistance(mapSequence, startMapId, endMapId);
+                console.log(`Path ${mapSequence.join(' -> ')}: ${distance.toFixed(0)} units`);
+
+                if (distance < shortestDistance) {
+                    shortestDistance = distance;
+                    shortestPath = mapSequence;
+                }
+            }
+
+            console.log(`Chose shortest path: ${shortestPath.join(' -> ')} (${shortestDistance.toFixed(0)} units)`);
+            return shortestPath;
+        }
+
+        // Estimate the total distance for a map sequence (without full pathfinding)
+        function estimatePathDistance(mapSequence, startMapId, endMapId) {
+            let totalDistance = 0;
+
+            // For simplicity, estimate distance between portals
+            for (let i = 0; i < mapSequence.length - 1; i++) {
+                const currentMapId = mapSequence[i];
+                const nextMapId = mapSequence[i + 1];
+
+                const portal = findPortalToMap(currentMapId, nextMapId);
+                if (!portal) {
+                    // Can't find portal, use a penalty
+                    totalDistance += 100000;
+                    continue;
+                }
+
+                const currentMapInfo = state.maps.get(currentMapId);
+                const nextMapInfo = state.maps.get(nextMapId);
+
+                if (!currentMapInfo || !nextMapInfo) {
+                    totalDistance += 100000;
+                    continue;
+                }
+
+                // Estimate distance within current map
+                // For first map: from start point to portal
+                // For middle maps: between portals
+                // For last map: from portal to end point
+
+                if (i === 0) {
+                    // First map: estimate from start to portal exit
+                    const startPoint = state.startPoint;
+                    const dx = portal.sourceX - startPoint.x;
+                    const dy = portal.sourceY - startPoint.y;
+                    totalDistance += Math.sqrt(dx * dx + dy * dy);
+                } else {
+                    // Middle map: estimate between entry and exit portals
+                    const prevPortal = findPortalToMap(mapSequence[i - 1], currentMapId);
+                    if (prevPortal) {
+                        const dx = portal.sourceX - prevPortal.targetX;
+                        const dy = portal.sourceY - prevPortal.targetY;
+                        totalDistance += Math.sqrt(dx * dx + dy * dy);
+                    }
+                }
+
+                // If this is the last transition, add distance on final map
+                if (i === mapSequence.length - 2) {
+                    const endPoint = state.endPoint;
+                    const dx = endPoint.x - portal.targetX;
+                    const dy = endPoint.y - portal.targetY;
+                    totalDistance += Math.sqrt(dx * dx + dy * dy);
+                }
+            }
+
+            return totalDistance;
+        }
+
+        // Find portal from sourceMapId to targetMapId (BIDIRECTIONAL)
+        function findPortalToMap(sourceMapId, targetMapId) {
+            const sourceMapInfo = state.maps.get(sourceMapId);
+            if (!sourceMapInfo) return null;
+
+            const data = sourceMapInfo.data;
+
+            // First, try to find a direct portal from source to target
+            // Check travel_portals
+            if (data.travel_portals) {
+                for (const portal of data.travel_portals) {
+                    const sourceX = portal[0];
+                    const sourceY = portal[1];
+                    const targets = portal[2] || [];
+
+                    for (const target of targets) {
+                        const tgtMapId = target[0];
+                        const targetX = target[1];
+                        const targetY = target[2];
+
+                        if (tgtMapId === targetMapId) {
+                            return { sourceX, sourceY, targetX, targetY };
+                        }
+                    }
+                }
+            }
+
+            // Check npc_travel
+            if (data.npc_travel) {
+                for (const npc of data.npc_travel) {
+                    const sourceX = npc[0];
+                    const sourceY = npc[1];
+                    const tgtMapId = npc[7];
+                    const targetX = npc[8];
+                    const targetY = npc[9];
+
+                    if (tgtMapId === targetMapId) {
+                        return { sourceX, sourceY, targetX, targetY };
+                    }
+                }
+            }
+
+            // Check enter_travel
+            if (data.enter_travel) {
+                for (const enter of data.enter_travel) {
+                    const sourceX = enter[0];
+                    const sourceY = enter[1];
+                    const tgtMapId = enter[7];
+                    const targetX = enter[8];
+                    const targetY = enter[9];
+
+                    if (tgtMapId === targetMapId) {
+                        return { sourceX, sourceY, targetX, targetY };
+                    }
+                }
+            }
+
+            // If no direct portal found, try REVERSE direction (from target to source)
+            // This handles bidirectional portals where only one direction is defined
+            const targetMapInfo = state.maps.get(targetMapId);
+            if (!targetMapInfo) return null;
+
+            const targetData = targetMapInfo.data;
+
+            // Check reverse travel_portals
+            if (targetData.travel_portals) {
+                for (const portal of targetData.travel_portals) {
+                    const targetX = portal[0];
+                    const targetY = portal[1];
+                    const targets = portal[2] || [];
+
+                    for (const target of targets) {
+                        const tgtMapId = target[0];
+                        const sourceX = target[1];
+                        const sourceY = target[2];
+
+                        if (tgtMapId === sourceMapId) {
+                            // Found reverse portal! Swap source and target
+                            return { sourceX, sourceY, targetX, targetY };
+                        }
+                    }
+                }
+            }
+
+            // Check reverse npc_travel
+            if (targetData.npc_travel) {
+                for (const npc of targetData.npc_travel) {
+                    const targetX = npc[0];
+                    const targetY = npc[1];
+                    const tgtMapId = npc[7];
+                    const sourceX = npc[8];
+                    const sourceY = npc[9];
+
+                    if (tgtMapId === sourceMapId) {
+                        // Found reverse portal! Swap source and target
+                        return { sourceX, sourceY, targetX, targetY };
+                    }
+                }
+            }
+
+            // Check reverse enter_travel
+            if (targetData.enter_travel) {
+                for (const enter of targetData.enter_travel) {
+                    const targetX = enter[0];
+                    const targetY = enter[1];
+                    const tgtMapId = enter[7];
+                    const sourceX = enter[8];
+                    const sourceY = enter[9];
+
+                    if (tgtMapId === sourceMapId) {
+                        // Found reverse portal! Swap source and target
+                        return { sourceX, sourceY, targetX, targetY };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // Calculate total path length
+        function calculatePathLength(path) {
+            let length = 0;
+            for (let i = 1; i < path.length; i++) {
+                length += getDistance(path[i - 1].x, path[i - 1].y, path[i].x, path[i].y);
+            }
+            return length;
+        }
+
+        // Simplify path by removing intermediate points that are too close
+        // This works exactly like PathfindingViewer.html - simple distance-based filtering
+        function simplifyPath(path, minSpacing) {
+            if (!path || path.length <= 2) return path;
+
+            const simplified = [];
+
+            // Always add start point
+            simplified.push(path[0]);
+
+            let lastAddedPoint = path[0];
+
+            // Iterate through middle points
+            for (let i = 1; i < path.length - 1; i++) {
+                const currentPoint = path[i];
+                const dx = currentPoint.x - lastAddedPoint.x;
+                const dy = currentPoint.y - lastAddedPoint.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Add point if it's far enough from the last added point
+                if (distance >= minSpacing) {
+                    simplified.push(currentPoint);
+                    lastAddedPoint = currentPoint;
+                }
+            }
+
+            // Always add end point
+            simplified.push(path[path.length - 1]);
+
+            return simplified;
+        }
+
+        // Update path info display with coordinates
+        function updatePathInfo() {
+            if (!state.simplifiedPath || state.simplifiedPath.length === 0) return;
+
+            // Display coordinates list
+            const coordsDiv = document.getElementById('coordsContent');
+            let html = '';
+
+            for (let i = 0; i < state.simplifiedPath.length; i++) {
+                const worldPoint = state.simplifiedPath[i];
+
+                // Find which map this point belongs to
+                let mapId = null;
+                let gameCoords = null;
+
+                // Check all maps to find which one contains this point
+                for (const [currentMapId, mapInfo] of state.maps) {
+                    if (isPointInMapBounds(worldPoint.x, worldPoint.y, mapInfo)) {
+                        mapId = currentMapId;
+                        gameCoords = worldToGame(worldPoint.x, worldPoint.y, mapInfo);
+                        break;
+                    }
+                }
+
+                if (mapId && gameCoords) {
+                    html += `${i}: Map ${mapId}: (${gameCoords.x.toFixed(2)}, ${gameCoords.y.toFixed(2)})<br>`;
+                } else {
+                    // Fallback to world coordinates if map not found
+                    html += `${i}: (${worldPoint.x.toFixed(2)}, ${worldPoint.y.toFixed(2)})<br>`;
+                }
+            }
+
+            coordsDiv.innerHTML = html;
+            document.getElementById('pathCoordsList').style.display = 'block';
+        }
+
+        // Helper function to check if a world point is within a map's bounds
+        function isPointInMapBounds(worldX, worldY, mapInfo) {
+            const data = mapInfo.data;
+            if (!data.world_map_bounds) return false;
+
+            const bounds = data.world_map_bounds;
+            return worldX >= bounds.min_x && worldX <= bounds.max_x &&
+                   worldY >= bounds.min_y && worldY <= bounds.max_y;
+        }
+
+        // Draw the path on canvas
+        function drawPath(pathSegments) {
+            const ctx = state.ctx;
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+
+            pathSegments.forEach(segment => {
+                if (segment.points.length < 2) return;
+
+                ctx.beginPath();
+                const firstPoint = worldToScreen(segment.points[0].x, segment.points[0].y);
+                ctx.moveTo(firstPoint.x, firstPoint.y);
+
+                for (let i = 1; i < segment.points.length; i++) {
+                    const screenPos = worldToScreen(segment.points[i].x, segment.points[i].y);
+                    ctx.lineTo(screenPos.x, screenPos.y);
+                }
+
+                ctx.stroke();
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
