@@ -15,6 +15,7 @@ Global Const $DLL_PATH = @ScriptDir & "\GWPathfinder.dll"
 Global Const $tagPathPoint = "float x;float y"
 Global Const $tagPathResult = "ptr points;int point_count;float total_cost;int error_code;char error_message[256]"
 Global Const $tagMapStats = "int trapezoid_count;int point_count;int teleport_count;int travel_portal_count;int npc_travel_count;int enter_travel_count;int error_code;char error_message[256]"
+Global Const $tagObstacleZone = "float x;float y;float radius"
 
 ; ============================================
 ; Main Functions
@@ -62,7 +63,17 @@ Func LoadMapFromFile($mapID, $filePath)
 EndFunc
 
 ; Find a path between two points
-Func FindPathGW($mapID, $startX, $startY, $destX, $destY, $simplifyRange = 0)
+; $obstacles can be:
+;   - 0 or Default: no obstacles
+;   - 2D array: [[x1, y1, radius1], [x2, y2, radius2], ...]
+Func FindPathGW($mapID, $startX, $startY, $destX, $destY, $obstacles = 0, $simplifyRange = 0)
+    ; Check if obstacles are provided
+    If IsArray($obstacles) And UBound($obstacles) > 0 Then
+        ; Use FindPathWithObstacles
+        Return _FindPathWithObstacles($mapID, $startX, $startY, $destX, $destY, $obstacles, $simplifyRange)
+    EndIf
+
+    ; No obstacles, use standard FindPath
     Local $result = DllCall($DLL_PATH, "ptr:cdecl", "FindPath", _
         "int", $mapID, _
         "float", $startX, _
@@ -73,6 +84,43 @@ Func FindPathGW($mapID, $startX, $startY, $destX, $destY, $simplifyRange = 0)
 
     If @error Then
         ConsoleWrite("DllCall FindPath error: " & @error & @CRLF)
+        Return SetError(1, 0, 0)
+    EndIf
+
+    Return $result[0]
+EndFunc
+
+; Internal function to find path with obstacles
+Func _FindPathWithObstacles($mapID, $startX, $startY, $destX, $destY, $obstacles, $simplifyRange)
+    Local $obstacleCount = UBound($obstacles)
+
+    ; Create a contiguous array of ObstacleZone structures in memory
+    ; Each ObstacleZone is 12 bytes (3 floats: x, y, radius)
+    Local $obstacleStructSize = 12
+    Local $obstacleBuffer = DllStructCreate("byte[" & ($obstacleCount * $obstacleStructSize) & "]")
+    Local $pObstacles = DllStructGetPtr($obstacleBuffer)
+
+    ; Fill the obstacle buffer
+    For $i = 0 To $obstacleCount - 1
+        Local $obstacle = DllStructCreate($tagObstacleZone, $pObstacles + $i * $obstacleStructSize)
+        DllStructSetData($obstacle, "x", $obstacles[$i][0])
+        DllStructSetData($obstacle, "y", $obstacles[$i][1])
+        DllStructSetData($obstacle, "radius", $obstacles[$i][2])
+    Next
+
+    ; Call FindPathWithObstacles
+    Local $result = DllCall($DLL_PATH, "ptr:cdecl", "FindPathWithObstacles", _
+        "int", $mapID, _
+        "float", $startX, _
+        "float", $startY, _
+        "float", $destX, _
+        "float", $destY, _
+        "ptr", $pObstacles, _
+        "int", $obstacleCount, _
+        "float", $simplifyRange)
+
+    If @error Then
+        ConsoleWrite("DllCall FindPathWithObstacles error: " & @error & @CRLF)
         Return SetError(1, 0, 0)
     EndIf
 
@@ -237,16 +285,36 @@ If Not @error Then
 EndIf
 ConsoleWrite(@CRLF)
 
-; 6. Find a path
-ConsoleWrite("[6] Finding path on map " & $testMapID & "..." & @CRLF)
+; 6. Find a path (without obstacles)
+ConsoleWrite("[6] Finding path on map " & $testMapID & " (no obstacles)..." & @CRLF)
 ConsoleWrite("From (-4258.8976, -5018.4462) to (4177.5174, 9114.5833) with simplification = 1250" & @CRLF)
 
-Local $pPath = FindPathGW($testMapID, -4258.8976, -5018.4462, 4177.5174, 9114.5833, 1250)
+Local $pPath = FindPathGW($testMapID, -4258.8976, -5018.4462, 4177.5174, 9114.5833, 0, 1250)
 If Not @error And $pPath <> 0 Then
     DisplayPath($pPath)
     FreePathResult($pPath)
 Else
     ConsoleWrite("Error finding path" & @CRLF)
+EndIf
+ConsoleWrite(@CRLF)
+
+; 6b. Find a path WITH obstacles
+ConsoleWrite("[6b] Finding path on map " & $testMapID & " (WITH obstacles)..." & @CRLF)
+ConsoleWrite("From (-4258.8976, -5018.4462) to (4177.5174, 9114.5833) with simplification = 1250" & @CRLF)
+ConsoleWrite("Obstacles: [125, 978, 50], [-1578, 9875, 75]" & @CRLF)
+
+; Define obstacles as 2D array: [[x, y, radius], ...]
+Local $aObstacles[2][3] = [ _
+    [125, 978, 50], _
+    [-1578, 9875, 75] _
+]
+
+Local $pPathWithObstacles = FindPathGW($testMapID, -4258.8976, -5018.4462, 4177.5174, 9114.5833, $aObstacles, 1250)
+If Not @error And $pPathWithObstacles <> 0 Then
+    DisplayPath($pPathWithObstacles)
+    FreePathResult($pPathWithObstacles)
+Else
+    ConsoleWrite("Error finding path with obstacles" & @CRLF)
 EndIf
 ConsoleWrite(@CRLF)
 

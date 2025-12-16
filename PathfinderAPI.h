@@ -36,6 +36,13 @@ extern "C" {
         char error_message[256];    // Error message if applicable
     };
 
+    // Structure for an obstacle zone (circular area to avoid)
+    struct ObstacleZone {
+        float x;        // Center X coordinate
+        float y;        // Center Y coordinate
+        float radius;   // Radius of the obstacle zone
+    };
+
     /**
      * @brief Finds a path between two points on a map
      *
@@ -53,6 +60,33 @@ extern "C" {
         float start_y,
         float dest_x,
         float dest_y,
+        float range
+    );
+
+    /**
+     * @brief Finds a path between two points on a map, avoiding obstacle zones
+     *
+     * Points that fall within any obstacle zone will be excluded from the pathfinding graph.
+     * Adjacent points outside the obstacle zones will be kept, allowing for path detours.
+     *
+     * @param map_id GW map ID
+     * @param start_x Starting X coordinate
+     * @param start_y Starting Y coordinate
+     * @param dest_x Destination X coordinate
+     * @param dest_y Destination Y coordinate
+     * @param obstacles Array of obstacle zones to avoid (can be NULL if obstacle_count is 0)
+     * @param obstacle_count Number of obstacles in the array
+     * @param range Minimum distance between simplified points (0 = no simplification)
+     * @return PathResult* Pointer to the result (must be freed with FreePathResult)
+     */
+    PATHFINDER_API PathResult* FindPathWithObstacles(
+        int32_t map_id,
+        float start_x,
+        float start_y,
+        float dest_x,
+        float dest_y,
+        ObstacleZone* obstacles,
+        int32_t obstacle_count,
         float range
     );
 

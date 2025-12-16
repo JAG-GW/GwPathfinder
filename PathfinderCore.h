@@ -136,6 +136,21 @@ namespace Pathfinder {
                           npc_travel_count(0), enter_travel_count(0) {}
     };
 
+    // Structure for an obstacle zone (circular area to avoid during pathfinding)
+    struct ObstacleZone {
+        Vec2f center;
+        float radius;
+        float radius_squared; // Precomputed for faster distance checks
+
+        ObstacleZone() : center(), radius(0), radius_squared(0) {}
+        ObstacleZone(float x, float y, float r) : center(x, y), radius(r), radius_squared(r * r) {}
+
+        // Check if a point is inside this obstacle zone
+        bool Contains(const Vec2f& point) const {
+            return center.SquaredDistance(point) <= radius_squared;
+        }
+    };
+
 
     // Map data structure
     struct MapData {
@@ -172,6 +187,15 @@ namespace Pathfinder {
             float& out_cost
         );
 
+        // Finds a path between two points, avoiding obstacle zones
+        std::vector<Vec2f> FindPathWithObstacles(
+            int32_t map_id,
+            const Vec2f& start,
+            const Vec2f& goal,
+            const std::vector<ObstacleZone>& obstacles,
+            float& out_cost
+        );
+
         // Simplifies a path (removes intermediate points that are too close)
         std::vector<Vec2f> SimplifyPath(
             const std::vector<Vec2f>& path,
@@ -195,10 +219,31 @@ namespace Pathfinder {
             int32_t goal_id
         );
 
+        // A* algorithm with obstacle avoidance
+        std::vector<int32_t> AStarWithObstacles(
+            const MapData& map_data,
+            int32_t start_id,
+            int32_t goal_id,
+            const std::vector<ObstacleZone>& obstacles
+        );
+
+        // Check if a point is blocked by any obstacle
+        bool IsPointBlocked(
+            const Vec2f& point,
+            const std::vector<ObstacleZone>& obstacles
+        ) const;
+
         // Finds the closest point to a position
         int32_t FindClosestPoint(
             const MapData& map_data,
             const Vec2f& pos
+        );
+
+        // Finds the closest point to a position, excluding blocked points
+        int32_t FindClosestPointAvoidingObstacles(
+            const MapData& map_data,
+            const Vec2f& pos,
+            const std::vector<ObstacleZone>& obstacles
         );
 
         // Calculates the heuristic for A*
