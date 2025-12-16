@@ -157,6 +157,7 @@ Shutdown();
 | Function                                               | Description                                             |
 |--------------------------------------------------------|---------------------------------------------------------|
 | `FindPath(mapId, startX, startY, destX, destY, range)` | Finds a path between two points. Returns a `PathResult*`. |
+| `FindPathWithObstacles(mapId, startX, startY, destX, destY, obstacles, count, range)` | Finds a path avoiding circular obstacles. |
 | `FreePathResult(result)`                               | Frees the memory allocated for a `PathResult`.          |
 ```
 ### Map Functions
@@ -285,6 +286,130 @@ Map files contain the following structure:
 }
 ```
 
+## Obstacle Avoidance
+
+The DLL supports pathfinding with dynamic obstacle avoidance. Obstacles are defined as circles (X, Y, Radius).
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. GRAPH MODIFICATION                                      │
+│     For each obstacle circle (X, Y, Radius):                │
+│     - Mark intersecting navigation zones as blocked         │
+│     - Or increase traversal cost near obstacles             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  2. A* PATHFINDING                                          │
+│     - Heuristic: Euclidean distance to destination          │
+│     - Cost: Real distance + obstacle penalty                │
+│     - Explores adjacent trapezoids until destination        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  3. WAYPOINT GENERATION                                     │
+│     - Converts trapezoid path to X,Y coordinates            │
+│     - Applies basic simplification (SimplifyRange)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Obstacle Structure
+
+```cpp
+struct ObstacleZone {
+    float x;       // Center X coordinate
+    float y;       // Center Y coordinate
+    float radius;  // Collision radius
+};
+```
+
+### AutoIt Usage
+
+```autoit
+; Define obstacle structure
+Global Const $tagObstacleZone = "float x;float y;float radius"
+
+; Create obstacles array (e.g., 3 NPCs to avoid)
+Local $obstacles[3][3] = [ _
+    [1200, 500, 85], _   ; NPC 1: X=1200, Y=500, Radius=85
+    [1500, 600, 85], _   ; NPC 2
+    [2000, 400, 85]  _   ; NPC 3
+]
+
+; Convert to memory buffer
+Local $obstacleCount = UBound($obstacles)
+Local $obstacleSize = 12  ; 3 floats * 4 bytes
+Local $obstacleBuffer = DllStructCreate("byte[" & ($obstacleCount * $obstacleSize) & "]")
+Local $pObstacles = DllStructGetPtr($obstacleBuffer)
+
+For $i = 0 To $obstacleCount - 1
+    Local $obs = DllStructCreate($tagObstacleZone, $pObstacles + $i * $obstacleSize)
+    DllStructSetData($obs, "x", $obstacles[$i][0])
+    DllStructSetData($obs, "y", $obstacles[$i][1])
+    DllStructSetData($obs, "radius", $obstacles[$i][2])
+Next
+
+; Find path with obstacles
+Local $pPath = DllCall($DLL_PATH, "ptr:cdecl", "FindPathWithObstacles", _
+    "int", $mapId, _
+    "float", $startX, _
+    "float", $startY, _
+    "float", $destX, _
+    "float", $destY, _
+    "ptr", $pObstacles, _
+    "int", $obstacleCount, _
+    "float", 50.0)  ; SimplifyRange (use low value for detailed path)
+
+; Process result same as FindPath()
+```
+
+### C/C++ Usage
+
+```cpp
+#include "PathfinderAPI.h"
+
+// Define obstacles
+ObstacleZone obstacles[] = {
+    {1200.0f, 500.0f, 85.0f},  // NPC 1
+    {1500.0f, 600.0f, 85.0f},  // NPC 2
+    {2000.0f, 400.0f, 85.0f}   // NPC 3
+};
+
+int obstacleCount = sizeof(obstacles) / sizeof(ObstacleZone);
+
+// Find path avoiding obstacles
+PathResult* result = FindPathWithObstacles(
+    mapId,
+    startX, startY,
+    destX, destY,
+    obstacles,
+    obstacleCount,
+    50.0f  // SimplifyRange
+);
+
+if (result && result->error_code == 0) {
+    // Path found, process waypoints
+    for (int i = 0; i < result->point_count; i++) {
+        printf("Waypoint %d: (%.2f, %.2f)\n",
+               i, result->points[i].x, result->points[i].y);
+    }
+}
+
+FreePathResult(result);
+```
+
+### Best Practices
+
+| Tip | Description |
+|-----|-------------|
+| **Low SimplifyRange** | Use 50 when obstacles present, let AutoIt do smart simplification |
+| **Radius sizing** | Typical NPC radius: 80-100 units |
+| **Dynamic updates** | Recalculate path every 500ms when obstacles move |
+| **Performance** | Obstacle avoidance adds ~5-10ms per pathfinding call |
+
 ## Performance
 ```
 | Operation            | Time       | Notes                 |
@@ -292,6 +417,7 @@ Map files contain the following structure:
 | Initialize()         | ~100 ms    | Scans maps.zip        |
 | First FindPath()     | ~20-50 ms  | Loading + pathfinding |
 | Subsequent FindPath()| <1 ms      | From cache            |
+| FindPathWithObstacles()| ~5-15 ms | Depends on obstacle count |
 | Memory per map       | ~1-5 MB    | Depends on size       |
 | Total cache          | ~20-100 MB | 20 maps max           |
 ```
