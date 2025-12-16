@@ -466,13 +466,8 @@ m_cache(std::make_unique<MapCache>(20))  // <- Change 20
 - **Thread-safety**: Can be used from multiple threads
 - **Memory management**: Always call `FreePathResult()`, `FreeMapList()`, and `FreeMapStats()`
 
-## Acknowledgements
-
-Special thanks to **[QuarkyUp](https://github.com/QuarkyUp)** for the inspiration and help with this project.
-
 ## Support
 
-- Documentation: [README_ARCHIVE_LOADING.md](README_ARCHIVE_LOADING.md)
 - Quick start: [QUICKSTART.md](QUICKSTART.md)
 - Examples: [TestAutoIt.au3](TestAutoIt.au3)
 - Issues: GitHub Issues
@@ -484,3 +479,7 @@ See [CHANGELOG.md](CHANGELOG.md)
 ---
 
 **Note**: This version uses a ZIP archive loading system to drastically reduce DLL size and improve startup performance.
+
+## Acknowledgements
+
+Special thanks to **[QuarkyUp](https://github.com/QuarkyUp)** for the inspiration and help with this project.
