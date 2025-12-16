@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-// Instance globale du moteur de pathfinding
+// Global pathfinding engine instance
 static std::unique_ptr<Pathfinder::PathfinderEngine> g_engine;
 static bool g_initialized = false;
 
@@ -14,21 +14,21 @@ extern "C" {
 
     PATHFINDER_API int32_t Initialize() {
         if (g_initialized) {
-            return 1; // Déjà initialisé
+            return 1; // Already initialized
         }
 
         try {
             g_engine = std::make_unique<Pathfinder::PathfinderEngine>();
 
-            // Initialiser le registre des cartes (charge depuis maps.zip)
+            // Initialize the map registry (loads from maps.zip)
             auto& registry = Pathfinder::MapDataRegistry::GetInstance();
             if (!registry.Initialize()) {
-                // Si l'initialisation échoue, retourner une erreur
+                // If initialization fails, return an error
                 return 0;
             }
 
-            // Note: Les cartes seront chargées à la demande (lazy loading)
-            // lors de l'appel à FindPath
+            // Note: Maps will be loaded on demand (lazy loading)
+            // when FindPath is called
 
             g_initialized = true;
             return 1;
@@ -53,7 +53,7 @@ extern "C" {
         float dest_y,
         float range
     ) {
-        // Auto-initialisation si nécessaire
+        // Auto-initialize if necessary
         if (!g_initialized) {
             if (!Initialize()) {
                 PathResult* result = new PathResult();
@@ -74,7 +74,7 @@ extern "C" {
         result->error_message[0] = '\0';
 
         try {
-            // Vérifier si la carte est chargée, sinon la charger depuis l'archive
+            // Check if the map is loaded, otherwise load it from the archive
             if (!g_engine->IsMapLoaded(map_id)) {
                 auto& registry = Pathfinder::MapDataRegistry::GetInstance();
                 std::string map_data = registry.GetMapData(map_id);
@@ -85,7 +85,7 @@ extern "C" {
                     return result;
                 }
 
-                // Charger la carte dans le moteur
+                // Load the map into the engine
                 if (!g_engine->LoadMapData(map_id, map_data)) {
                     result->error_code = 1;
                     std::snprintf(result->error_message, 255, "Failed to load map %d", map_id);
@@ -93,7 +93,7 @@ extern "C" {
                 }
             }
 
-            // Trouver le chemin
+            // Find the path
             Pathfinder::Vec2f start(start_x, start_y);
             Pathfinder::Vec2f goal(dest_x, dest_y);
             float cost = 0.0f;
@@ -106,12 +106,12 @@ extern "C" {
                 return result;
             }
 
-            // Simplifier le chemin si demandé
+            // Simplify the path if requested
             if (range > 0.0f) {
                 path = g_engine->SimplifyPath(path, range);
             }
 
-            // Allouer et copier les points
+            // Allocate and copy the points
             result->point_count = static_cast<int32_t>(path.size());
             result->points = new PathPoint[result->point_count];
             result->total_cost = cost;
@@ -163,7 +163,7 @@ extern "C" {
         }
 
         try {
-            // Obtenir la liste de toutes les maps disponibles dans l'archive
+            // Get the list of all available maps in the archive
             auto& registry = Pathfinder::MapDataRegistry::GetInstance();
             std::vector<int32_t> map_ids = registry.GetAvailableMapIds();
             *count = static_cast<int32_t>(map_ids.size());
@@ -194,7 +194,7 @@ extern "C" {
     }
 
     PATHFINDER_API int32_t LoadMapFromFile(int32_t map_id, const char* file_path) {
-        // Auto-initialisation si nécessaire
+        // Auto-initialize if necessary
         if (!g_initialized) {
             if (!Initialize()) {
                 return 0;
@@ -206,18 +206,18 @@ extern "C" {
         }
 
         try {
-            // Ouvrir le fichier JSON
+            // Open the JSON file
             std::ifstream file(file_path, std::ios::in | std::ios::binary);
             if (!file.is_open()) {
                 return 0;
             }
 
-            // Lire tout le contenu
+            // Read all content
             std::stringstream buffer;
             buffer << file.rdbuf();
             std::string json_data = buffer.str();
 
-            // Charger dans le moteur
+            // Load into the engine
             if (g_engine->LoadMapData(map_id, json_data)) {
                 return 1;
             }
@@ -230,7 +230,7 @@ extern "C" {
     }
 
     PATHFINDER_API MapStats* GetMapStats(int32_t map_id) {
-        // Auto-initialisation si nécessaire
+        // Auto-initialize if necessary
         if (!g_initialized) {
             Initialize();
         }
@@ -277,12 +277,12 @@ extern "C" {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
     case DLL_PROCESS_ATTACH:
-        // Initialisation automatique au chargement
+        // Automatic initialization on load
         Initialize();
         break;
 
     case DLL_PROCESS_DETACH:
-        // Nettoyage automatique au déchargement
+        // Automatic cleanup on unload
         Shutdown();
         break;
 

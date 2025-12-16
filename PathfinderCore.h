@@ -8,7 +8,7 @@
 
 namespace Pathfinder {
 
-    // Structure pour un point 2D
+    // Structure for a 2D point
     struct Vec2f {
         float x;
         float y;
@@ -39,7 +39,7 @@ namespace Pathfinder {
         }
     };
 
-    // Structure pour un point du graphe
+    // Structure for a graph point
     struct Point {
         int32_t id;
         Vec2f pos;
@@ -49,11 +49,11 @@ namespace Pathfinder {
         Point(int32_t _id, const Vec2f& _pos) : id(_id), pos(_pos) {}
     };
 
-    // Structure pour une arête du graphe de visibilité
+    // Structure for a visibility graph edge
     struct VisibilityEdge {
-        int32_t target_id;      // ID du point cible
-        float distance;         // Distance jusqu'au point cible
-        std::vector<uint32_t> blocking_layers; // Layers qui bloquent ce chemin
+        int32_t target_id;      // Target point ID
+        float distance;         // Distance to target point
+        std::vector<uint32_t> blocking_layers; // Layers that block this path
 
         VisibilityEdge() : target_id(-1), distance(0.0f) {}
         VisibilityEdge(int32_t id, float dist) : target_id(id), distance(dist) {}
@@ -61,10 +61,10 @@ namespace Pathfinder {
             : target_id(id), distance(dist), blocking_layers(layers) {}
     };
 
-    // Structure pour un téléporteur
+    // Structure for a teleporter
     struct Teleporter {
-        Vec2f enter;    // Point d'entrée
-        Vec2f exit;     // Point de sortie
+        Vec2f enter;    // Entry point
+        Vec2f exit;     // Exit point
         int32_t direction; // 0 = one-way, 1 = both-ways
 
         Teleporter() : enter(), exit(), direction(0) {}
@@ -72,31 +72,31 @@ namespace Pathfinder {
             : enter(enter_x, enter_y), exit(exit_x, exit_y), direction(dir) {}
     };
 
-    // Structure pour une connexion de portail de voyage
+    // Structure for a travel portal connection
     struct PortalConnection {
-        int32_t dest_map_id;    // ID de la carte de destination
-        Vec2f dest_pos;         // Position de destination sur la carte cible
+        int32_t dest_map_id;    // Destination map ID
+        Vec2f dest_pos;         // Destination position on target map
 
         PortalConnection() : dest_map_id(0), dest_pos() {}
         PortalConnection(int32_t map_id, float x, float y)
             : dest_map_id(map_id), dest_pos(x, y) {}
     };
 
-    // Structure pour un portail de voyage
+    // Structure for a travel portal
     struct TravelPortal {
-        Vec2f position;                             // Position du portail
-        std::vector<PortalConnection> connections;  // Liste des destinations possibles
+        Vec2f position;                             // Portal position
+        std::vector<PortalConnection> connections;  // List of possible destinations
 
         TravelPortal() : position() {}
         TravelPortal(float x, float y) : position(x, y) {}
     };
 
-    // Structure pour un voyage via NPC
+    // Structure for NPC travel
     struct NpcTravel {
-        Vec2f npc_pos;          // Position du NPC
-        int32_t dialog_ids[5];  // IDs de dialogue
-        int32_t dest_map_id;    // ID de la carte de destination
-        Vec2f dest_pos;         // Position de destination
+        Vec2f npc_pos;          // NPC position
+        int32_t dialog_ids[5];  // Dialog IDs
+        int32_t dest_map_id;    // Destination map ID
+        Vec2f dest_pos;         // Destination position
 
         NpcTravel() : npc_pos(), dest_map_id(0), dest_pos() {
             for (int i = 0; i < 5; ++i) dialog_ids[i] = 0;
@@ -112,18 +112,18 @@ namespace Pathfinder {
         }
     };
 
-    // Structure pour un voyage via touche Entrée
+    // Structure for Enter key travel
     struct EnterTravel {
-        Vec2f enter_pos;        // Position du point d'entrée sur la carte
-        int32_t dest_map_id;    // ID de la carte de destination
-        Vec2f dest_pos;         // Position de destination
+        Vec2f enter_pos;        // Entry point position on the map
+        int32_t dest_map_id;    // Destination map ID
+        Vec2f dest_pos;         // Destination position
 
         EnterTravel() : enter_pos(), dest_map_id(0), dest_pos() {}
         EnterTravel(float enter_x, float enter_y, int32_t map_id, float dest_x, float dest_y)
             : enter_pos(enter_x, enter_y), dest_map_id(map_id), dest_pos(dest_x, dest_y) {}
     };
 
-    // Structure pour les statistiques d'une carte
+    // Structure for map statistics
     struct MapStatistics {
         int32_t trapezoid_count;
         int32_t point_count;
@@ -137,7 +137,7 @@ namespace Pathfinder {
     };
 
 
-    // Données d'une carte
+    // Map data structure
     struct MapData {
         int32_t map_id;
         std::vector<Point> points;
@@ -155,16 +155,16 @@ namespace Pathfinder {
         }
     };
 
-    // Classe principale de pathfinding
+    // Main pathfinding class
     class PathfinderEngine {
     public:
         PathfinderEngine() = default;
         ~PathfinderEngine() = default;
 
-        // Charge les données d'une carte depuis JSON
+        // Loads map data from JSON
         bool LoadMapData(int32_t map_id, const std::string& json_data);
 
-        // Trouve un chemin entre deux points
+        // Finds a path between two points
         std::vector<Vec2f> FindPath(
             int32_t map_id,
             const Vec2f& start,
@@ -172,50 +172,50 @@ namespace Pathfinder {
             float& out_cost
         );
 
-        // Simplifie un chemin (retire les points intermédiaires trop proches)
+        // Simplifies a path (removes intermediate points that are too close)
         std::vector<Vec2f> SimplifyPath(
             const std::vector<Vec2f>& path,
             float min_spacing
         );
 
-        // Vérifie si une carte est chargée
+        // Checks if a map is loaded
         bool IsMapLoaded(int32_t map_id) const;
 
-        // Retourne les IDs des cartes chargées
+        // Returns the IDs of loaded maps
         std::vector<int32_t> GetLoadedMapIds() const;
 
-        // Récupère les statistiques d'une carte
+        // Gets the statistics of a map
         bool GetMapStatistics(int32_t map_id, MapStatistics& out_stats) const;
 
     private:
-        // Algorithme A*
+        // A* algorithm
         std::vector<int32_t> AStar(
             const MapData& map_data,
             int32_t start_id,
             int32_t goal_id
         );
 
-        // Trouve le point le plus proche d'une position
+        // Finds the closest point to a position
         int32_t FindClosestPoint(
             const MapData& map_data,
             const Vec2f& pos
         );
 
-        // Calcule l'heuristique pour A*
+        // Calculates the heuristic for A*
         float Heuristic(
             const MapData& map_data,
             const Vec2f& from,
             const Vec2f& to
         );
 
-        // Heuristique avec téléporteurs
+        // Heuristic with teleporters
         float TeleporterHeuristic(
             const MapData& map_data,
             const Vec2f& from,
             const Vec2f& to
         );
 
-        // Reconstruit le chemin depuis les résultats de A*
+        // Reconstructs the path from A* results
         std::vector<Vec2f> ReconstructPath(
             const MapData& map_data,
             const std::vector<int32_t>& came_from,
@@ -223,10 +223,10 @@ namespace Pathfinder {
             int32_t goal_id
         );
 
-        // Parse le JSON d'une carte
+        // Parses a map's JSON
         bool ParseMapJson(const std::string& json_data, MapData& out_map_data);
 
-        // Maps chargées (map_id -> MapData)
+        // Loaded maps (map_id -> MapData)
         std::unordered_map<int32_t, MapData> m_loaded_maps;
     };
 

@@ -20,7 +20,7 @@ namespace Pathfinder {
             return "";
         }
 
-        // Déplacer cet élément au début de la liste LRU
+        // Move this element to the front of the LRU list
         m_lru_list.erase(it->second.lru_it);
         m_lru_list.push_front(map_id);
         it->second.lru_it = m_lru_list.begin();
@@ -33,16 +33,16 @@ namespace Pathfinder {
 
         auto it = m_cache.find(map_id);
         if (it != m_cache.end()) {
-            // Mise à jour d'une entrée existante
+            // Update existing entry
             m_lru_list.erase(it->second.lru_it);
             m_lru_list.push_front(map_id);
             it->second.data = data;
             it->second.lru_it = m_lru_list.begin();
         }
         else {
-            // Nouvelle entrée
+            // New entry
             if (m_cache.size() >= m_max_size) {
-                // Supprimer l'élément le moins récemment utilisé
+                // Remove the least recently used element
                 int32_t old_id = m_lru_list.back();
                 m_lru_list.pop_back();
                 m_cache.erase(old_id);
@@ -86,7 +86,7 @@ namespace Pathfinder {
 
         m_archive_path = archive_path;
 
-        // Vérifier que l'archive existe et est lisible
+        // Verify that the archive exists and is readable
         int error_code = 0;
         zip_t* archive = zip_open(archive_path.c_str(), ZIP_RDONLY, &error_code);
         if (!archive) {
@@ -94,7 +94,7 @@ namespace Pathfinder {
         }
         zip_close(archive);
 
-        // Scanner l'archive pour trouver toutes les maps disponibles
+        // Scan the archive to find all available maps
         ScanArchive();
 
         m_initialized = true;
@@ -106,17 +106,17 @@ namespace Pathfinder {
             return "";
         }
 
-        // Vérifier le cache d'abord
+        // Check the cache first
         std::string cached = m_cache->Get(map_id);
         if (!cached.empty()) {
             return cached;
         }
 
-        // Chercher le fichier correspondant au map_id dans l'archive
-        // Les fichiers sont nommés comme: "100_Prophecies_Kryta_...json"
+        // Find the file corresponding to map_id in the archive
+        // Files are named like: "100_Prophecies_Kryta_...json"
         std::string data = FindAndReadMapFile(map_id);
         if (!data.empty()) {
-            // Mettre en cache
+            // Add to cache
             m_cache->Put(map_id, data);
         }
 
@@ -146,21 +146,21 @@ namespace Pathfinder {
             return "";
         }
 
-        // Trouver le fichier dans l'archive
+        // Find the file in the archive
         zip_stat_t stat;
         if (zip_stat(archive, filename.c_str(), 0, &stat) != 0) {
             zip_close(archive);
             return "";
         }
 
-        // Ouvrir le fichier
+        // Open the file
         zip_file_t* file = zip_fopen(archive, filename.c_str(), 0);
         if (!file) {
             zip_close(archive);
             return "";
         }
 
-        // Lire le contenu
+        // Read the content
         std::string content;
         content.resize(stat.size);
 
@@ -188,7 +188,7 @@ namespace Pathfinder {
             return "";
         }
 
-        // Chercher un fichier qui commence par "map_id_"
+        // Search for a file that starts with "map_id_"
         std::string prefix = std::to_string(map_id) + "_";
         zip_int64_t num_entries = zip_get_num_entries(archive, 0);
 
@@ -197,9 +197,9 @@ namespace Pathfinder {
             if (!name) continue;
 
             std::string filename(name);
-            // Vérifier si le fichier commence par le map_id et finit par .json
+            // Check if the file starts with map_id and ends with .json
             if (filename.find(prefix) == 0 && filename.find(".json") != std::string::npos) {
-                // Fichier trouvé, le lire
+                // File found, read it
                 std::string content = ReadFileFromZipUnlocked(archive, filename);
                 zip_close(archive);
                 return content;
@@ -211,19 +211,19 @@ namespace Pathfinder {
     }
 
     std::string MapArchiveLoader::ReadFileFromZipUnlocked(zip_t* archive, const std::string& filename) {
-        // Trouver le fichier dans l'archive
+        // Find the file in the archive
         zip_stat_t stat;
         if (zip_stat(archive, filename.c_str(), 0, &stat) != 0) {
             return "";
         }
 
-        // Ouvrir le fichier
+        // Open the file
         zip_file_t* file = zip_fopen(archive, filename.c_str(), 0);
         if (!file) {
             return "";
         }
 
-        // Lire le contenu
+        // Read the content
         std::string content;
         content.resize(stat.size);
 
@@ -253,11 +253,11 @@ namespace Pathfinder {
             const char* name = zip_get_name(archive, i, 0);
             if (!name) continue;
 
-            // Les fichiers sont nommés: "100_Prophecies_Kryta_...json"
-            // Extraire l'ID du début du nom de fichier
+            // Files are named: "100_Prophecies_Kryta_...json"
+            // Extract the ID from the beginning of the filename
             std::string filename(name);
             if (filename.find(".json") != std::string::npos) {
-                // Trouver le premier underscore
+                // Find the first underscore
                 size_t first_underscore = filename.find('_');
                 if (first_underscore != std::string::npos && first_underscore > 0) {
                     std::string id_str = filename.substr(0, first_underscore);
@@ -266,7 +266,7 @@ namespace Pathfinder {
                         m_available_maps.push_back(map_id);
                     }
                     catch (...) {
-                        // Ignorer les fichiers avec des noms invalides
+                        // Ignore files with invalid names
                     }
                 }
             }
@@ -274,7 +274,7 @@ namespace Pathfinder {
 
         zip_close(archive);
 
-        // Trier les IDs pour faciliter la recherche
+        // Sort IDs for easier searching
         std::sort(m_available_maps.begin(), m_available_maps.end());
     }
 

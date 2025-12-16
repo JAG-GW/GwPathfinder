@@ -27,9 +27,9 @@ namespace Pathfinder {
         try {
             auto j = json::parse(json_data);
 
-            // Parse map IDs (peut contenir plusieurs IDs)
+            // Parse map IDs (may contain multiple IDs)
             if (j.contains("map_ids") && j["map_ids"].is_array()) {
-                // On prend le premier ID de la liste
+                // Take the first ID from the list
                 if (!j["map_ids"].empty()) {
                     out_map_data.map_id = j["map_ids"][0].get<int32_t>();
                 }
@@ -203,30 +203,30 @@ namespace Pathfinder {
 
         auto it = m_loaded_maps.find(map_id);
         if (it == m_loaded_maps.end()) {
-            return {}; // Map non chargée
+            return {}; // Map not loaded
         }
 
         const MapData& map_data = it->second;
 
-        // Trouver les points les plus proches du start et du goal
+        // Find the closest points to start and goal
         int32_t start_id = FindClosestPoint(map_data, start);
         int32_t goal_id = FindClosestPoint(map_data, goal);
 
         if (start_id < 0 || goal_id < 0) {
-            return {}; // Points non trouvés
+            return {}; // Points not found
         }
 
-        // Exécuter A*
+        // Run A*
         std::vector<int32_t> came_from = AStar(map_data, start_id, goal_id);
 
         if (came_from.empty()) {
-            return {}; // Pas de chemin trouvé
+            return {}; // No path found
         }
 
-        // Reconstruire le chemin
+        // Reconstruct the path
         std::vector<Vec2f> path = ReconstructPath(map_data, came_from, start_id, goal_id);
 
-        // Calculer le coût total
+        // Calculate total cost
         out_cost = 0.0f;
         for (size_t i = 1; i < path.size(); ++i) {
             out_cost += path[i - 1].Distance(path[i]);
@@ -264,10 +264,10 @@ namespace Pathfinder {
             open_set.pop();
 
             if (current_id == goal_id) {
-                break; // Chemin trouvé
+                break; // Path found
             }
 
-            // Explorer les voisins
+            // Explore neighbors
             if (current_id >= 0 && current_id < static_cast<int32_t>(map_data.visibility_graph.size())) {
                 const auto& edges = map_data.visibility_graph[current_id];
 
@@ -283,7 +283,7 @@ namespace Pathfinder {
                         cost_so_far[neighbor_id] = new_cost;
                         came_from[neighbor_id] = current_id;
 
-                        // Calculer la priorité avec heuristique
+                        // Calculate priority with heuristic
                         float priority = new_cost;
 
                         if (has_teleporters) {
@@ -307,7 +307,7 @@ namespace Pathfinder {
         }
 
         if (current_id != goal_id) {
-            return {}; // Pas de chemin trouvé
+            return {}; // No path found
         }
 
         return came_from;
@@ -381,7 +381,7 @@ namespace Pathfinder {
             return std::numeric_limits<float>::infinity();
         }
 
-        // Trouver le téléporteur le plus proche du start
+        // Find the teleporter closest to start
         float closest_to_start_dist = std::numeric_limits<float>::infinity();
         const Teleporter* closest_to_start = nullptr;
 
@@ -397,7 +397,7 @@ namespace Pathfinder {
             }
         }
 
-        // Trouver le téléporteur le plus proche du goal
+        // Find the teleporter closest to goal
         float closest_to_goal_dist = std::numeric_limits<float>::infinity();
         const Teleporter* closest_to_goal = nullptr;
 
@@ -417,7 +417,7 @@ namespace Pathfinder {
             return std::numeric_limits<float>::infinity();
         }
 
-        // Calculer le coût via téléporteurs
+        // Calculate cost via teleporters
         if (closest_to_start == closest_to_goal) {
             return closest_to_start_dist + closest_to_start->exit.Distance(to);
         }
@@ -435,7 +435,7 @@ namespace Pathfinder {
         }
 
         std::vector<Vec2f> simplified;
-        simplified.push_back(path[0]); // Toujours inclure le premier point
+        simplified.push_back(path[0]); // Always include the first point
 
         Vec2f last_added = path[0];
 
@@ -447,7 +447,7 @@ namespace Pathfinder {
             }
         }
 
-        simplified.push_back(path.back()); // Toujours inclure le dernier point
+        simplified.push_back(path.back()); // Always include the last point
 
         return simplified;
     }

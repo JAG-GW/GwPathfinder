@@ -15,18 +15,18 @@ namespace Pathfinder {
     }
 
     MapDataRegistry::MapDataRegistry() {
-        // L'initialisation se fait maintenant via Initialize()
+        // Initialization is now done via Initialize()
     }
 
     bool MapDataRegistry::Initialize(const std::string& archive_path) {
         std::string path = archive_path;
 
-        // Si aucun chemin n'est fourni, utiliser le chemin par défaut
+        // If no path is provided, use the default path
         if (path.empty()) {
             path = GetDefaultArchivePath();
         }
 
-        // Initialiser le chargeur d'archives
+        // Initialize the archive loader
         return MapArchiveLoader::GetInstance().Initialize(path);
     }
 
@@ -48,27 +48,27 @@ namespace Pathfinder {
 
     std::string MapDataRegistry::GetDefaultArchivePath() const {
 #ifdef _WIN32
-        // Obtenir le chemin du module DLL
+        // Get the DLL module path
         char dll_path[MAX_PATH];
         HMODULE hModule = NULL;
 
-        // Obtenir le handle du module actuel
+        // Get handle to current module
         if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                                reinterpret_cast<LPCSTR>(&MapDataRegistry::GetInstance),
                                &hModule)) {
             GetModuleFileNameA(hModule, dll_path, MAX_PATH);
 
-            // Retirer le nom du fichier pour avoir juste le dossier
+            // Remove filename to get just the folder
             PathRemoveFileSpecA(dll_path);
 
-            // Ajouter maps.zip
+            // Add maps.zip
             std::string result(dll_path);
             result += "\\maps.zip";
             return result;
         }
 #endif
-        // Fallback: chercher dans le dossier courant
+        // Fallback: search in current directory
         return "maps.zip";
     }
 

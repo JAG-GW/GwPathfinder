@@ -1,63 +1,63 @@
-# Guide de démarrage rapide - GWPathfinder
+# Quick Start Guide - GWPathfinder
 
-## Installation rapide (3 étapes)
+## Quick Installation (3 steps)
 
-### 1. Préparer maps.zip
+### 1. Prepare maps.zip
 
-Convertissez votre fichier `maps.rar` en `maps.zip` :
+Convert your `maps.rar` file to `maps.zip`:
 
 ```bash
-# Option A: Automatique (recommandé)
+# Option A: Automatic (recommended)
 .\ConvertRarToZip.ps1
 
-# Option B: Manuel
-# Extraire maps.rar avec WinRAR/7-Zip
-# Créer maps.zip avec tous les fichiers map_*.json
+# Option B: Manual
+# Extract maps.rar with WinRAR/7-Zip
+# Create maps.zip with all JSON files (format: {mapId}_*.json)
 ```
 
-### 2. Compiler la DLL
+### 2. Build the DLL
 
 ```bash
-# Compilation simple (Release)
+# Simple build (Release)
 .\build.bat
 
-# Compilation avec nettoyage
+# Clean build
 .\build.bat clean release
 
-# Mode debug
+# Debug mode
 .\build.bat debug
 
-# Aide
+# Help
 .\build.bat help
 ```
 
-Le script `build.bat` va automatiquement :
-- ✅ Vérifier que maps.zip existe
-- ✅ Installer les dépendances vcpkg (nlohmann-json, libzip)
-- ✅ Configurer CMake
-- ✅ Compiler la DLL
-- ✅ Copier maps.zip dans le dossier de sortie
+The `build.bat` script will automatically:
+- Check that maps.zip exists
+- Install vcpkg dependencies (nlohmann-json, libzip)
+- Configure CMake
+- Build the DLL
+- Copy maps.zip to the output folder
 
-### 3. Tester
+### 3. Test
 
 ```bash
-# La DLL sera dans build/Release/
+# The DLL will be in build/Release/
 cd build\Release
 AutoIt3.exe ..\..\TestAutoIt.au3
 ```
 
-## Utilisation avec AutoIt
+## Using with AutoIt
 
-### Code minimal
+### Minimal Code
 
 ```autoit
-; Charger la DLL
+; Load the DLL
 Global Const $DLL_PATH = @ScriptDir & "\GWPathfinder.dll"
 
-; Initialiser
+; Initialize
 DllCall($DLL_PATH, "int:cdecl", "Initialize")
 
-; Trouver un chemin
+; Find a path
 Local $pPath = DllCall($DLL_PATH, "ptr:cdecl", "FindPath", _
     "int", 123, _        ; Map ID
     "float", 100.0, _    ; Start X
@@ -66,61 +66,61 @@ Local $pPath = DllCall($DLL_PATH, "ptr:cdecl", "FindPath", _
     "float", 600.0, _    ; Dest Y
     "float", 50.0)       ; Simplify range
 
-; Libérer la mémoire
+; Free memory
 DllCall($DLL_PATH, "none:cdecl", "FreePathResult", "ptr", $pPath[0])
 
-; Fermer
+; Shutdown
 DllCall($DLL_PATH, "none:cdecl", "Shutdown")
 ```
 
-### Exemple complet
+### Complete Example
 
-Voir [TestAutoIt.au3](TestAutoIt.au3) pour un exemple complet avec :
-- Gestion des erreurs
-- Affichage des statistiques de maps
-- Liste des maps disponibles
-- Parsing du résultat de pathfinding
+See [TestAutoIt.au3](TestAutoIt.au3) for a complete example with:
+- Error handling
+- Map statistics display
+- Available maps listing
+- Pathfinding result parsing
 
-## Structure des fichiers
+## File Structure
 
-Après compilation, vous aurez :
+After building, you will have:
 
 ```
 Pathfinder/
 ├── build/
 │   └── Release/
-│       ├── GWPathfinder.dll    ← La DLL à utiliser
-│       └── maps.zip             ← Automatiquement copié
-├── MapArchiveLoader.cpp/.h      ← Chargement depuis ZIP
-├── PathfinderAPI.cpp/.h         ← API C pour AutoIt
-├── PathfinderCore.cpp/.h        ← Moteur A*
-├── MapDataRegistry.cpp/.h       ← Interface de chargement
-├── build.bat                    ← Script de compilation
-├── ConvertRarToZip.ps1          ← Conversion RAR→ZIP
-├── TestAutoIt.au3               ← Script de test
-└── CMakeLists.txt               ← Configuration CMake
+│       ├── GWPathfinder.dll    <- The DLL to use
+│       └── maps.zip            <- Automatically copied
+├── MapArchiveLoader.cpp/.h     <- ZIP loader
+├── PathfinderAPI.cpp/.h        <- C API for AutoIt
+├── PathfinderCore.cpp/.h       <- A* engine
+├── MapDataRegistry.cpp/.h      <- Loading interface
+├── build.bat                   <- Build script
+├── ConvertRarToZip.ps1         <- RAR to ZIP conversion
+├── TestAutoIt.au3              <- Test script
+└── CMakeLists.txt              <- CMake configuration
 ```
 
-## Déploiement
+## Deployment
 
-Pour distribuer votre application :
+To distribute your application:
 
 ```
-VotreApplication/
-├── VotreScript.au3
+YourApplication/
+├── YourScript.au3
 ├── GWPathfinder.dll
 └── maps.zip
 ```
 
-C'est tout! La DLL trouvera automatiquement `maps.zip` dans son propre dossier.
+That's it! The DLL will automatically find `maps.zip` in its own folder.
 
-## Résolution de problèmes
+## Troubleshooting
 
 ### "CMake not found"
-Installez CMake : https://cmake.org/download/
+Install CMake: https://cmake.org/download/
 
 ### "vcpkg not found"
-Installez vcpkg : https://github.com/microsoft/vcpkg
+Install vcpkg: https://github.com/microsoft/vcpkg
 ```bash
 git clone https://github.com/microsoft/vcpkg
 cd vcpkg
@@ -129,20 +129,20 @@ cd vcpkg
 ```
 
 ### "Failed to initialize pathfinder"
-- Vérifiez que `maps.zip` est présent
-- Vérifiez que le fichier n'est pas corrompu
-- Essayez de recréer maps.zip avec `ConvertRarToZip.ps1`
+- Check that `maps.zip` is present
+- Check that the file is not corrupted
+- Try recreating maps.zip with `ConvertRarToZip.ps1`
 
 ### "Map XXX not found in archive"
-- Ouvrez maps.zip et vérifiez que `map_XXX.json` existe
-- Le nom doit être exactement `map_123.json` (pas `Map_123.json` ou `123.json`)
+- Open maps.zip and check that a file starting with `XXX_` exists
+- The filename must follow the format `{mapId}_{description}.json` (e.g., `7_Ascalon.json`)
 
-### Compilation échoue
+### Build fails
 ```bash
-# Nettoyer et recompiler
+# Clean and rebuild
 .\build.bat clean release
 
-# Vérifier les dépendances
+# Check dependencies
 cd ..\..\..\..\..
 vcpkg install nlohmann-json:x64-windows
 vcpkg install libzip:x64-windows
@@ -150,38 +150,70 @@ vcpkg install libzip:x64-windows
 
 ## Performance
 
-### Première utilisation d'une map
-~10-50ms (lecture ZIP + parsing JSON)
+### First use of a map
+~10-50ms (ZIP reading + JSON parsing)
 
-### Utilisations suivantes
-<1ms (depuis le cache)
+### Subsequent uses
+<1ms (from cache)
 
 ### Cache
-20 maps en mémoire par défaut (modifiable dans MapArchiveLoader.cpp)
+20 maps in memory by default (configurable in MapArchiveLoader.cpp:69)
 
-## Différences avec l'ancienne version
+## Comparison with Previous Version
+```
+| Aspect           | Old       | New (ZIP)   |
+|------------------|-----------|-------------|
+| DLL size         | ~500 MB   | ~5 MB       |
+| Memory           | All maps  | 20 maps max |
+| Startup          | ~5 sec    | ~0.1 sec    |
+| First map access | Instant   | ~20 ms      |
+| Map updates      | Recompile | Replace ZIP |
+| AutoIt API       | Same      | Same        |
+```
+## API Reference
 
-| Aspect | Ancienne | Nouvelle (ZIP) |
-|--------|----------|----------------|
-| Taille DLL | ~500 MB | ~5 MB |
-| Mémoire | Toutes les maps | 20 maps max |
-| Démarrage | ~5 sec | ~0.1 sec |
-| Premier accès map | Immédiat | ~20 ms |
-| Mise à jour maps | Recompiler | Remplacer ZIP |
-| API AutoIt | Inchangée | Inchangée ✅ |
+### Available Functions
+```
+| Function                                               | Description                            |
+|--------------------------------------------------------|----------------------------------------|
+| `Initialize()`                                         | Initialize the DLL and load maps.zip   |
+| `Shutdown()`                                           | Clean up DLL resources                 |
+| `GetPathfinderVersion()`                               | Get the DLL version string             |
+| `FindPath(mapId, startX, startY, destX, destY, range)` | Find a path                            |
+| `FreePathResult(result)`                               | Free PathResult memory                 |
+| `IsMapAvailable(mapId)`                                | Check if a map exists                  |
+| `GetAvailableMaps(count)`                              | List all available maps                |
+| `FreeMapList(mapList)`                                 | Free map list memory                   |
+| `GetMapStats(mapId)`                                   | Get map statistics                     |
+| `FreeMapStats(stats)`                                  | Free MapStats memory                   |
+| `LoadMapFromFile(mapId, filePath)`                     | Load a map from external JSON file     |
+```
+### Map File Naming Convention
 
-## Documentation complète
+Files in `maps.zip` must follow this naming format:
+```
+{mapId}_{description}.json
+```
 
-- [README_ARCHIVE_LOADING.md](README_ARCHIVE_LOADING.md) - Documentation technique
-- [CHANGELOG.md](CHANGELOG.md) - Liste des modifications
-- [TestAutoIt.au3](TestAutoIt.au3) - Exemples de code
+Examples:
+- `7_Prophecies_Ascalon_AscalonCity.json`
+- `100_Prophecies_Kryta_LionsArch.json`
+
+The loader extracts the map ID from the beginning of the filename (before the first underscore).
+
+## Full Documentation
+
+- [README.md](README.md) - Main documentation
+- [README_ARCHIVE_LOADING.md](README_ARCHIVE_LOADING.md) - Technical documentation
+- [CHANGELOG.md](CHANGELOG.md) - Change history
+- [TestAutoIt.au3](TestAutoIt.au3) - Code examples
 
 ## Support
 
-En cas de problème :
-1. Vérifiez la [section dépannage](#résolution-de-problèmes)
-2. Consultez [README_ARCHIVE_LOADING.md](README_ARCHIVE_LOADING.md)
-3. Vérifiez que vcpkg est bien configuré
-4. Essayez `build.bat clean release`
+If you have issues:
+1. Check the [troubleshooting section](#troubleshooting)
+2. See [README_ARCHIVE_LOADING.md](README_ARCHIVE_LOADING.md)
+3. Verify vcpkg is properly configured
+4. Try `build.bat clean release`
 
-Bon développement! 🚀
+Happy coding!

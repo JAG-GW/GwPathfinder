@@ -9,43 +9,43 @@
 #include <cstdint>
 
 extern "C" {
-    // Structure pour un point du chemin
+    // Structure for a path point
     struct PathPoint {
         float x;
         float y;
     };
 
-    // Structure pour le résultat du pathfinding
+    // Structure for the pathfinding result
     struct PathResult {
-        PathPoint* points;      // Tableau des points du chemin
-        int32_t point_count;    // Nombre de points
-        float total_cost;       // Coût total du chemin
-        int32_t error_code;     // 0 = succès, autre = erreur
-        char error_message[256]; // Message d'erreur si applicable
+        PathPoint* points;      // Array of path points
+        int32_t point_count;    // Number of points
+        float total_cost;       // Total path cost
+        int32_t error_code;     // 0 = success, other = error
+        char error_message[256]; // Error message if applicable
     };
 
-    // Structure pour les statistiques d'une carte
+    // Structure for map statistics
     struct MapStats {
-        int32_t trapezoid_count;    // Nombre de trapézoïdes
-        int32_t point_count;        // Nombre de points
-        int32_t teleport_count;     // Nombre de téléporteurs
-        int32_t travel_portal_count; // Nombre de portails de voyage
-        int32_t npc_travel_count;   // Nombre de voyages via NPC
-        int32_t enter_travel_count; // Nombre de voyages via touche Entrée
-        int32_t error_code;         // 0 = succès, autre = erreur
-        char error_message[256];    // Message d'erreur si applicable
+        int32_t trapezoid_count;    // Number of trapezoids
+        int32_t point_count;        // Number of points
+        int32_t teleport_count;     // Number of teleporters
+        int32_t travel_portal_count; // Number of travel portals
+        int32_t npc_travel_count;   // Number of NPC travels
+        int32_t enter_travel_count; // Number of Enter key travels
+        int32_t error_code;         // 0 = success, other = error
+        char error_message[256];    // Error message if applicable
     };
 
     /**
-     * @brief Trouve un chemin entre deux points sur une carte
+     * @brief Finds a path between two points on a map
      *
-     * @param map_id ID de la carte GW
-     * @param start_x Coordonnée X de départ
-     * @param start_y Coordonnée Y de départ
-     * @param dest_x Coordonnée X de destination
-     * @param dest_y Coordonnée Y de destination
-     * @param range Distance minimale entre les points simplifiés (0 = pas de simplification)
-     * @return PathResult* Pointeur vers le résultat (doit être libéré avec FreePathResult)
+     * @param map_id GW map ID
+     * @param start_x Starting X coordinate
+     * @param start_y Starting Y coordinate
+     * @param dest_x Destination X coordinate
+     * @param dest_y Destination Y coordinate
+     * @param range Minimum distance between simplified points (0 = no simplification)
+     * @return PathResult* Pointer to the result (must be freed with FreePathResult)
      */
     PATHFINDER_API PathResult* FindPath(
         int32_t map_id,
@@ -57,75 +57,75 @@ extern "C" {
     );
 
     /**
-     * @brief Libère la mémoire allouée pour un résultat de pathfinding
+     * @brief Frees the memory allocated for a pathfinding result
      *
-     * @param result Pointeur vers le résultat à libérer
+     * @param result Pointer to the result to free
      */
     PATHFINDER_API void FreePathResult(PathResult* result);
 
     /**
-     * @brief Vérifie si une carte est disponible dans la DLL
+     * @brief Checks if a map is available in the DLL
      *
-     * @param map_id ID de la carte GW
-     * @return int32_t 1 si disponible, 0 sinon
+     * @param map_id GW map ID
+     * @return int32_t 1 if available, 0 otherwise
      */
     PATHFINDER_API int32_t IsMapAvailable(int32_t map_id);
 
     /**
-     * @brief Retourne la liste des IDs de cartes disponibles
+     * @brief Returns the list of available map IDs
      *
-     * @param count Pointeur pour recevoir le nombre de cartes
-     * @return int32_t* Tableau des IDs (doit être libéré avec FreeMapList)
+     * @param count Pointer to receive the number of maps
+     * @return int32_t* Array of IDs (must be freed with FreeMapList)
      */
     PATHFINDER_API int32_t* GetAvailableMaps(int32_t* count);
 
     /**
-     * @brief Libère la mémoire allouée pour la liste des cartes
+     * @brief Frees the memory allocated for the map list
      *
-     * @param map_list Pointeur vers la liste à libérer
+     * @param map_list Pointer to the list to free
      */
     PATHFINDER_API void FreeMapList(int32_t* map_list);
 
     /**
-     * @brief Retourne la version de la DLL
+     * @brief Returns the DLL version
      *
-     * @return const char* Version string (ne pas libérer)
+     * @return const char* Version string (do not free)
      */
     PATHFINDER_API const char* GetPathfinderVersion();
 
     /**
-     * @brief Initialise la DLL (optionnel, appelé automatiquement)
+     * @brief Initializes the DLL (optional, called automatically)
      *
-     * @return int32_t 1 si succès, 0 sinon
+     * @return int32_t 1 if success, 0 otherwise
      */
     PATHFINDER_API int32_t Initialize();
 
     /**
-     * @brief Nettoie les ressources de la DLL
+     * @brief Cleans up the DLL resources
      */
     PATHFINDER_API void Shutdown();
 
     /**
-     * @brief Charge une carte depuis un fichier JSON externe
+     * @brief Loads a map from an external JSON file
      *
-     * @param map_id ID de la carte à charger
-     * @param file_path Chemin vers le fichier JSON
-     * @return int32_t 1 si succès, 0 sinon
+     * @param map_id ID of the map to load
+     * @param file_path Path to the JSON file
+     * @return int32_t 1 if success, 0 otherwise
      */
     PATHFINDER_API int32_t LoadMapFromFile(int32_t map_id, const char* file_path);
 
     /**
-     * @brief Récupère les statistiques d'une carte
+     * @brief Gets the statistics of a map
      *
-     * @param map_id ID de la carte
-     * @return MapStats* Pointeur vers les stats (doit être libéré avec FreeMapStats)
+     * @param map_id ID of the map
+     * @return MapStats* Pointer to the stats (must be freed with FreeMapStats)
      */
     PATHFINDER_API MapStats* GetMapStats(int32_t map_id);
 
     /**
-     * @brief Libère la mémoire allouée pour les statistiques
+     * @brief Frees the memory allocated for the statistics
      *
-     * @param stats Pointeur vers les stats à libérer
+     * @param stats Pointer to the stats to free
      */
     PATHFINDER_API void FreeMapStats(MapStats* stats);
 

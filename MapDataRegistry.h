@@ -7,14 +7,14 @@
 namespace Pathfinder {
 
     /**
-     * @brief Registre singleton pour le chargement des données de cartes
+     * @brief Singleton registry for loading map data
      *
-     * Cette classe charge les données JSON des cartes à la demande depuis une archive ZIP.
-     * Les données sont mises en cache automatiquement pour améliorer les performances.
+     * This class loads JSON map data on demand from a ZIP archive.
+     * Data is automatically cached to improve performance.
      *
      * Configuration:
-     * 1. Placer le fichier maps.zip dans le même répertoire que la DLL
-     * 2. Le fichier doit contenir des fichiers nommés map_XXX.json (ex: map_7.json, map_123.json)
+     * 1. Place the maps.zip file in the same directory as the DLL
+     * 2. The file must contain files named {mapId}_*.json (e.g., 7_Prophecies_...json, 123_Factions_...json)
      */
     class MapDataRegistry {
     public:
@@ -22,38 +22,38 @@ namespace Pathfinder {
         static MapDataRegistry& GetInstance();
 
         /**
-         * @brief Initialise le registre avec le chemin vers l'archive
-         * @param archive_path Chemin vers maps.zip (optionnel, par défaut cherche dans le dossier de la DLL)
-         * @return true si l'initialisation a réussi
+         * @brief Initializes the registry with the archive path
+         * @param archive_path Path to maps.zip (optional, defaults to the DLL folder)
+         * @return true if initialization succeeded
          */
         bool Initialize(const std::string& archive_path = "");
 
         /**
-         * @brief Retourne les données JSON d'une carte
-         * @param map_id ID de la carte à charger
-         * @return Les données JSON, ou "" si la carte n'existe pas
+         * @brief Returns JSON data for a map
+         * @param map_id ID of the map to load
+         * @return JSON data, or "" if map doesn't exist
          */
         std::string GetMapData(int32_t map_id);
 
         /**
-         * @brief Vérifie si une carte est disponible
-         * @param map_id ID de la carte à vérifier
-         * @return true si la carte existe
+         * @brief Checks if a map is available
+         * @param map_id ID of the map to check
+         * @return true if map exists
          */
         bool HasMap(int32_t map_id) const;
 
         /**
-         * @brief Obtient la liste de tous les IDs de cartes disponibles
-         * @return Vector contenant tous les IDs de cartes
+         * @brief Gets the list of all available map IDs
+         * @return Vector containing all map IDs
          */
         std::vector<int32_t> GetAvailableMapIds() const;
 
         /**
-         * @brief Vérifie si le registre est initialisé
+         * @brief Checks if the registry is initialized
          */
         bool IsInitialized() const;
 
-        // Interdit la copie
+        // Disallow copying
         MapDataRegistry(const MapDataRegistry&) = delete;
         MapDataRegistry& operator=(const MapDataRegistry&) = delete;
 
@@ -62,8 +62,8 @@ namespace Pathfinder {
         ~MapDataRegistry() = default;
 
         /**
-         * @brief Trouve le chemin par défaut de l'archive maps.zip
-         * @return Le chemin vers maps.zip dans le dossier de la DLL
+         * @brief Finds the default path to the maps.zip archive
+         * @return Path to maps.zip in the DLL folder
          */
         std::string GetDefaultArchivePath() const;
     };
