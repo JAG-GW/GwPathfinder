@@ -42,7 +42,8 @@ namespace Pathfinder {
                         int32_t id = p[0].get<int32_t>();
                         float x = p[1].get<float>();
                         float y = p[2].get<float>();
-                        out_map_data.points.emplace_back(id, x, y);
+                        int32_t layer = (p.size() >= 4) ? p[3].get<int32_t>() : 0;
+                        out_map_data.points.emplace_back(id, x, y, layer);
                     }
                 }
             }
@@ -193,7 +194,7 @@ namespace Pathfinder {
         }
     }
 
-    std::vector<Vec2f> PathfinderEngine::FindPath(
+    std::vector<PathPointWithLayer> PathfinderEngine::FindPath(
         int32_t map_id,
         const Vec2f& start,
         const Vec2f& goal,
@@ -224,18 +225,18 @@ namespace Pathfinder {
         }
 
         // Reconstruct the path
-        std::vector<Vec2f> path = ReconstructPath(map_data, came_from, start_id, goal_id);
+        std::vector<PathPointWithLayer> path = ReconstructPath(map_data, came_from, start_id, goal_id);
 
         // Calculate total cost
         out_cost = 0.0f;
         for (size_t i = 1; i < path.size(); ++i) {
-            out_cost += path[i - 1].Distance(path[i]);
+            out_cost += path[i - 1].pos.Distance(path[i].pos);
         }
 
         return path;
     }
 
-    std::vector<Vec2f> PathfinderEngine::FindPathWithObstacles(
+    std::vector<PathPointWithLayer> PathfinderEngine::FindPathWithObstacles(
         int32_t map_id,
         const Vec2f& start,
         const Vec2f& goal,
@@ -267,12 +268,12 @@ namespace Pathfinder {
         }
 
         // Reconstruct the path
-        std::vector<Vec2f> path = ReconstructPath(map_data, came_from, start_id, goal_id);
+        std::vector<PathPointWithLayer> path = ReconstructPath(map_data, came_from, start_id, goal_id);
 
         // Calculate total cost
         out_cost = 0.0f;
         for (size_t i = 1; i < path.size(); ++i) {
-            out_cost += path[i - 1].Distance(path[i]);
+            out_cost += path[i - 1].pos.Distance(path[i].pos);
         }
 
         return path;
@@ -445,13 +446,13 @@ namespace Pathfinder {
         return came_from;
     }
 
-    std::vector<Vec2f> PathfinderEngine::ReconstructPath(
+    std::vector<PathPointWithLayer> PathfinderEngine::ReconstructPath(
         const MapData& map_data,
         const std::vector<int32_t>& came_from,
         int32_t start_id,
         int32_t goal_id
     ) {
-        std::vector<Vec2f> path;
+        std::vector<PathPointWithLayer> path;
         int32_t current = goal_id;
         int32_t count = 0;
         const int32_t max_count = static_cast<int32_t>(map_data.points.size() * 2);
@@ -461,13 +462,13 @@ namespace Pathfinder {
                 break;
             }
 
-            path.push_back(map_data.points[current].pos);
+            path.emplace_back(map_data.points[current].pos, map_data.points[current].layer);
             current = came_from[current];
             count++;
         }
 
         if (current == start_id) {
-            path.push_back(map_data.points[start_id].pos);
+            path.emplace_back(map_data.points[start_id].pos, map_data.points[start_id].layer);
         }
 
         std::reverse(path.begin(), path.end());
@@ -598,22 +599,23 @@ namespace Pathfinder {
         return closest_to_start_dist + tp_travel_cost + closest_to_goal_dist;
     }
 
-    std::vector<Vec2f> PathfinderEngine::SimplifyPath(
-        const std::vector<Vec2f>& path,
+    std::vector<PathPointWithLayer> PathfinderEngine::SimplifyPath(
+        const std::vector<PathPointWithLayer>& path,
         float min_spacing
     ) {
         if (path.size() <= 2 || min_spacing <= 0.0f) {
             return path;
         }
 
-        std::vector<Vec2f> simplified;
+        std::vector<PathPointWithLayer> simplified;
         simplified.push_back(path[0]); // Always include the first point
 
-        Vec2f last_added = path[0];
+        PathPointWithLayer last_added = path[0];
 
         for (size_t i = 1; i < path.size() - 1; ++i) {
-            float dist = last_added.Distance(path[i]);
-            if (dist >= min_spacing) {
+            float dist = last_added.pos.Distance(path[i].pos);
+            // Keep point if distance is enough OR if layer changes (important for bridges!)
+            if (dist >= min_spacing || path[i].layer != last_added.layer) {
                 simplified.push_back(path[i]);
                 last_added = path[i];
             }

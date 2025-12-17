@@ -98,7 +98,7 @@ extern "C" {
             Pathfinder::Vec2f goal(dest_x, dest_y);
             float cost = 0.0f;
 
-            std::vector<Pathfinder::Vec2f> path = g_engine->FindPath(map_id, start, goal, cost);
+            std::vector<Pathfinder::PathPointWithLayer> path = g_engine->FindPath(map_id, start, goal, cost);
 
             if (path.empty()) {
                 result->error_code = 2;
@@ -117,8 +117,9 @@ extern "C" {
             result->total_cost = cost;
 
             for (int32_t i = 0; i < result->point_count; ++i) {
-                result->points[i].x = path[i].x;
-                result->points[i].y = path[i].y;
+                result->points[i].x = path[i].pos.x;
+                result->points[i].y = path[i].pos.y;
+                result->points[i].layer = path[i].layer;
             }
 
             return result;
@@ -203,7 +204,7 @@ extern "C" {
             Pathfinder::Vec2f goal(dest_x, dest_y);
             float cost = 0.0f;
 
-            std::vector<Pathfinder::Vec2f> path;
+            std::vector<Pathfinder::PathPointWithLayer> path;
             if (internal_obstacles.empty()) {
                 // No obstacles, use standard pathfinding
                 path = g_engine->FindPath(map_id, start, goal, cost);
@@ -229,8 +230,9 @@ extern "C" {
             result->total_cost = cost;
 
             for (int32_t i = 0; i < result->point_count; ++i) {
-                result->points[i].x = path[i].x;
-                result->points[i].y = path[i].y;
+                result->points[i].x = path[i].pos.x;
+                result->points[i].y = path[i].pos.y;
+                result->points[i].layer = path[i].layer;
             }
 
             return result;

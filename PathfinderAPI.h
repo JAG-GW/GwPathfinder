@@ -13,6 +13,7 @@ extern "C" {
     struct PathPoint {
         float x;
         float y;
+        int32_t layer;  // Layer/plane (0 = ground level, 1+ = elevated/bridge)
     };
 
     // Structure for the pathfinding result

@@ -43,10 +43,21 @@ namespace Pathfinder {
     struct Point {
         int32_t id;
         Vec2f pos;
+        int32_t layer;  // Layer/plane (0 = ground level, 1+ = elevated/bridge)
 
-        Point() : id(-1), pos() {}
-        Point(int32_t _id, float _x, float _y) : id(_id), pos(_x, _y) {}
-        Point(int32_t _id, const Vec2f& _pos) : id(_id), pos(_pos) {}
+        Point() : id(-1), pos(), layer(0) {}
+        Point(int32_t _id, float _x, float _y, int32_t _layer = 0) : id(_id), pos(_x, _y), layer(_layer) {}
+        Point(int32_t _id, const Vec2f& _pos, int32_t _layer = 0) : id(_id), pos(_pos), layer(_layer) {}
+    };
+
+    // Structure for a path point with layer (used in path results)
+    struct PathPointWithLayer {
+        Vec2f pos;
+        int32_t layer;
+
+        PathPointWithLayer() : pos(), layer(0) {}
+        PathPointWithLayer(const Vec2f& _pos, int32_t _layer) : pos(_pos), layer(_layer) {}
+        PathPointWithLayer(float _x, float _y, int32_t _layer) : pos(_x, _y), layer(_layer) {}
     };
 
     // Structure for a visibility graph edge
@@ -180,7 +191,7 @@ namespace Pathfinder {
         bool LoadMapData(int32_t map_id, const std::string& json_data);
 
         // Finds a path between two points
-        std::vector<Vec2f> FindPath(
+        std::vector<PathPointWithLayer> FindPath(
             int32_t map_id,
             const Vec2f& start,
             const Vec2f& goal,
@@ -188,7 +199,7 @@ namespace Pathfinder {
         );
 
         // Finds a path between two points, avoiding obstacle zones
-        std::vector<Vec2f> FindPathWithObstacles(
+        std::vector<PathPointWithLayer> FindPathWithObstacles(
             int32_t map_id,
             const Vec2f& start,
             const Vec2f& goal,
@@ -197,8 +208,8 @@ namespace Pathfinder {
         );
 
         // Simplifies a path (removes intermediate points that are too close)
-        std::vector<Vec2f> SimplifyPath(
-            const std::vector<Vec2f>& path,
+        std::vector<PathPointWithLayer> SimplifyPath(
+            const std::vector<PathPointWithLayer>& path,
             float min_spacing
         );
 
@@ -261,7 +272,7 @@ namespace Pathfinder {
         );
 
         // Reconstructs the path from A* results
-        std::vector<Vec2f> ReconstructPath(
+        std::vector<PathPointWithLayer> ReconstructPath(
             const MapData& map_data,
             const std::vector<int32_t>& came_from,
             int32_t start_id,
