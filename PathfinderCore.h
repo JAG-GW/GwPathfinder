@@ -162,12 +162,56 @@ namespace Pathfinder {
         }
     };
 
+    // Structure for a trapezoid (walkable area)
+    // Format: [id, layer, ax, ay, bx, by, cx, cy, dx, dy]
+    // Vertices are in order: A (top-left), B (bottom-left), C (bottom-right), D (top-right)
+    struct Trapezoid {
+        int32_t id;
+        int32_t layer;
+        Vec2f a, b, c, d;  // Four vertices
+
+        Trapezoid() : id(-1), layer(0) {}
+        Trapezoid(int32_t _id, int32_t _layer, float ax, float ay, float bx, float by,
+                  float cx, float cy, float dx, float dy)
+            : id(_id), layer(_layer), a(ax, ay), b(bx, by), c(cx, cy), d(dx, dy) {}
+
+        // Check if a point is inside this trapezoid
+        bool ContainsPoint(const Vec2f& p) const {
+            // Check if point is inside quadrilateral using cross product signs
+            auto sign = [](const Vec2f& p1, const Vec2f& p2, const Vec2f& p3) {
+                return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+            };
+
+            float d1 = sign(p, a, b);
+            float d2 = sign(p, b, c);
+            float d3 = sign(p, c, d);
+            float d4 = sign(p, d, a);
+
+            bool has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0) || (d4 < 0);
+            bool has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0) || (d4 > 0);
+
+            return !(has_neg && has_pos);
+        }
+    };
+
+    // Structure for a temporary point (created dynamically for pathfinding)
+    struct TempPoint {
+        Vec2f pos;
+        int32_t layer;
+        int32_t trapezoid_id;  // ID of the trapezoid containing this point
+
+        TempPoint() : pos(), layer(0), trapezoid_id(-1) {}
+        TempPoint(const Vec2f& _pos, int32_t _layer, int32_t _trap_id)
+            : pos(_pos), layer(_layer), trapezoid_id(_trap_id) {}
+    };
+
 
     // Map data structure
     struct MapData {
         int32_t map_id;
         std::vector<Point> points;
         std::vector<std::vector<VisibilityEdge>> visibility_graph;
+        std::vector<Trapezoid> trapezoids;  // Walkable areas
         std::vector<Teleporter> teleporters;
         std::vector<TravelPortal> travel_portals;
         std::vector<NpcTravel> npc_travels;
@@ -178,6 +222,16 @@ namespace Pathfinder {
 
         bool IsValid() const {
             return map_id > 0 && !points.empty() && !visibility_graph.empty();
+        }
+
+        // Find the trapezoid containing a point (returns nullptr if not found)
+        const Trapezoid* FindTrapezoidContaining(const Vec2f& pos) const {
+            for (const auto& trap : trapezoids) {
+                if (trap.ContainsPoint(pos)) {
+                    return &trap;
+                }
+            }
+            return nullptr;
         }
     };
 
@@ -281,6 +335,28 @@ namespace Pathfinder {
 
         // Parses a map's JSON
         bool ParseMapJson(const std::string& json_data, MapData& out_map_data);
+
+        // Creates a temporary point if the position is inside a valid trapezoid
+        // Returns the point ID (or -1 if not in a valid trapezoid)
+        int32_t CreateTemporaryPoint(
+            MapData& map_data,
+            const Vec2f& pos
+        );
+
+        // Inserts a temporary point into the visibility graph by connecting it to nearby points
+        void InsertPointIntoVisGraph(
+            MapData& map_data,
+            int32_t point_id,
+            int32_t max_connections = 8,
+            float max_range = 5000.0f
+        );
+
+        // Removes temporary points from the map data (cleanup after pathfinding)
+        void RemoveTemporaryPoints(
+            MapData& map_data,
+            size_t original_point_count,
+            size_t original_visgraph_size
+        );
 
         // Loaded maps (map_id -> MapData)
         std::unordered_map<int32_t, MapData> m_loaded_maps;

@@ -76,6 +76,29 @@ namespace Pathfinder {
                 }
             }
 
+            // Parse trapezoids
+            // Format: [id, layer, ax, ay, bx, by, cx, cy, dx, dy]
+            if (j.contains("trapezoids") && j["trapezoids"].is_array()) {
+                for (const auto& trap : j["trapezoids"]) {
+                    if (trap.is_array() && trap.size() >= 10) {
+                        int32_t id = trap[0].get<int32_t>();
+                        int32_t layer = trap[1].get<int32_t>();
+                        float ax = trap[2].get<float>();
+                        float ay = trap[3].get<float>();
+                        float bx = trap[4].get<float>();
+                        float by = trap[5].get<float>();
+                        float cx = trap[6].get<float>();
+                        float cy = trap[7].get<float>();
+                        float dx = trap[8].get<float>();
+                        float dy = trap[9].get<float>();
+
+                        out_map_data.trapezoids.emplace_back(
+                            id, layer, ax, ay, bx, by, cx, cy, dx, dy
+                        );
+                    }
+                }
+            }
+
             // Parse teleporters
             if (j.contains("teleports") && j["teleports"].is_array()) {
                 for (const auto& tp : j["teleports"]) {
@@ -207,30 +230,66 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        const MapData& map_data = it->second;
+        MapData& map_data = it->second;
 
-        // Find the closest points to start and goal
-        int32_t start_id = FindClosestPoint(map_data, start);
-        int32_t goal_id = FindClosestPoint(map_data, goal);
+        // Store original sizes for cleanup
+        size_t original_point_count = map_data.points.size();
+        size_t original_visgraph_size = map_data.visibility_graph.size();
 
+        // Try to create temporary points for start and goal positions
+        // This allows pathfinding from/to any valid position within trapezoids
+        int32_t start_id = -1;
+        int32_t goal_id = -1;
+        bool start_is_temp = false;
+        bool goal_is_temp = false;
+
+        // First, try to create a temporary point for start
+        start_id = CreateTemporaryPoint(map_data, start);
+        if (start_id >= 0) {
+            InsertPointIntoVisGraph(map_data, start_id);
+            start_is_temp = true;
+        } else {
+            // Fallback: find closest existing point
+            start_id = FindClosestPoint(map_data, start);
+        }
+
+        // Then, try to create a temporary point for goal
+        goal_id = CreateTemporaryPoint(map_data, goal);
+        if (goal_id >= 0) {
+            InsertPointIntoVisGraph(map_data, goal_id);
+            goal_is_temp = true;
+        } else {
+            // Fallback: find closest existing point
+            goal_id = FindClosestPoint(map_data, goal);
+        }
+
+        // Check if we have valid start and goal points
         if (start_id < 0 || goal_id < 0) {
+            // Cleanup temporary points if any were created
+            if (start_is_temp || goal_is_temp) {
+                RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
+            }
             return {}; // Points not found
         }
 
         // Run A*
         std::vector<int32_t> came_from = AStar(map_data, start_id, goal_id);
 
-        if (came_from.empty()) {
-            return {}; // No path found
+        std::vector<PathPointWithLayer> path;
+        if (!came_from.empty()) {
+            // Reconstruct the path
+            path = ReconstructPath(map_data, came_from, start_id, goal_id);
+
+            // Calculate total cost
+            out_cost = 0.0f;
+            for (size_t i = 1; i < path.size(); ++i) {
+                out_cost += path[i - 1].pos.Distance(path[i].pos);
+            }
         }
 
-        // Reconstruct the path
-        std::vector<PathPointWithLayer> path = ReconstructPath(map_data, came_from, start_id, goal_id);
-
-        // Calculate total cost
-        out_cost = 0.0f;
-        for (size_t i = 1; i < path.size(); ++i) {
-            out_cost += path[i - 1].pos.Distance(path[i].pos);
+        // Cleanup: remove temporary points
+        if (start_is_temp || goal_is_temp) {
+            RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
         }
 
         return path;
@@ -250,30 +309,71 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        const MapData& map_data = it->second;
+        MapData& map_data = it->second;
 
-        // Find the closest points to start and goal, avoiding obstacles
-        int32_t start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
-        int32_t goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+        // Store original sizes for cleanup
+        size_t original_point_count = map_data.points.size();
+        size_t original_visgraph_size = map_data.visibility_graph.size();
 
+        // Try to create temporary points for start and goal positions
+        int32_t start_id = -1;
+        int32_t goal_id = -1;
+        bool start_is_temp = false;
+        bool goal_is_temp = false;
+
+        // First, try to create a temporary point for start (if not blocked by obstacle)
+        if (!IsPointBlocked(start, obstacles)) {
+            start_id = CreateTemporaryPoint(map_data, start);
+            if (start_id >= 0) {
+                InsertPointIntoVisGraph(map_data, start_id);
+                start_is_temp = true;
+            }
+        }
+        if (start_id < 0) {
+            // Fallback: find closest existing point avoiding obstacles
+            start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
+        }
+
+        // Then, try to create a temporary point for goal (if not blocked by obstacle)
+        if (!IsPointBlocked(goal, obstacles)) {
+            goal_id = CreateTemporaryPoint(map_data, goal);
+            if (goal_id >= 0) {
+                InsertPointIntoVisGraph(map_data, goal_id);
+                goal_is_temp = true;
+            }
+        }
+        if (goal_id < 0) {
+            // Fallback: find closest existing point avoiding obstacles
+            goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+        }
+
+        // Check if we have valid start and goal points
         if (start_id < 0 || goal_id < 0) {
+            // Cleanup temporary points if any were created
+            if (start_is_temp || goal_is_temp) {
+                RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
+            }
             return {}; // Points not found (all blocked or no points)
         }
 
         // Run A* with obstacle avoidance
         std::vector<int32_t> came_from = AStarWithObstacles(map_data, start_id, goal_id, obstacles);
 
-        if (came_from.empty()) {
-            return {}; // No path found
+        std::vector<PathPointWithLayer> path;
+        if (!came_from.empty()) {
+            // Reconstruct the path
+            path = ReconstructPath(map_data, came_from, start_id, goal_id);
+
+            // Calculate total cost
+            out_cost = 0.0f;
+            for (size_t i = 1; i < path.size(); ++i) {
+                out_cost += path[i - 1].pos.Distance(path[i].pos);
+            }
         }
 
-        // Reconstruct the path
-        std::vector<PathPointWithLayer> path = ReconstructPath(map_data, came_from, start_id, goal_id);
-
-        // Calculate total cost
-        out_cost = 0.0f;
-        for (size_t i = 1; i < path.size(); ++i) {
-            out_cost += path[i - 1].pos.Distance(path[i].pos);
+        // Cleanup: remove temporary points
+        if (start_is_temp || goal_is_temp) {
+            RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
         }
 
         return path;
@@ -651,5 +751,112 @@ namespace Pathfinder {
         return true;
     }
 
+    int32_t PathfinderEngine::CreateTemporaryPoint(
+        MapData& map_data,
+        const Vec2f& pos
+    ) {
+        // Find the trapezoid containing this position
+        const Trapezoid* trap = map_data.FindTrapezoidContaining(pos);
+        if (!trap) {
+            return -1; // Point is not in a valid walkable area
+        }
+
+        // Create a new point with a unique ID
+        int32_t new_id = static_cast<int32_t>(map_data.points.size());
+        map_data.points.emplace_back(new_id, pos, trap->layer);
+
+        // Ensure the visibility graph has space for this point
+        if (map_data.visibility_graph.size() <= static_cast<size_t>(new_id)) {
+            map_data.visibility_graph.resize(new_id + 1);
+        }
+
+        return new_id;
+    }
+
+    void PathfinderEngine::InsertPointIntoVisGraph(
+        MapData& map_data,
+        int32_t point_id,
+        int32_t max_connections,
+        float max_range
+    ) {
+        if (point_id < 0 || point_id >= static_cast<int32_t>(map_data.points.size())) {
+            return;
+        }
+
+        const Point& point = map_data.points[point_id];
+        const float max_range_squared = max_range * max_range;
+
+        // Collect all nearby points with their distances
+        struct Connection {
+            int32_t id;
+            float distance;
+        };
+        std::vector<Connection> connections;
+
+        for (size_t i = 0; i < map_data.points.size(); ++i) {
+            if (static_cast<int32_t>(i) == point_id) continue;
+
+            const Point& other = map_data.points[i];
+
+            // Skip points on different layers (unless we have teleporters)
+            // For now, only connect to points on the same layer
+            if (other.layer != point.layer) continue;
+
+            float dist_sq = point.pos.SquaredDistance(other.pos);
+            if (dist_sq < max_range_squared) {
+                // Check if this point has connections in the vis_graph
+                // Only connect to points that are already connected to others
+                if (i < map_data.visibility_graph.size() && !map_data.visibility_graph[i].empty()) {
+                    connections.push_back({static_cast<int32_t>(i), std::sqrt(dist_sq)});
+                }
+            }
+        }
+
+        // Sort by distance and keep only the closest connections
+        std::sort(connections.begin(), connections.end(),
+            [](const Connection& a, const Connection& b) { return a.distance < b.distance; });
+
+        if (connections.size() > static_cast<size_t>(max_connections)) {
+            connections.resize(max_connections);
+        }
+
+        // Add edges from the new point to nearby points
+        for (const auto& conn : connections) {
+            map_data.visibility_graph[point_id].emplace_back(conn.id, conn.distance);
+
+            // Add reverse edge (bidirectional)
+            if (conn.id < static_cast<int32_t>(map_data.visibility_graph.size())) {
+                map_data.visibility_graph[conn.id].emplace_back(point_id, conn.distance);
+            }
+        }
+    }
+
+    void PathfinderEngine::RemoveTemporaryPoints(
+        MapData& map_data,
+        size_t original_point_count,
+        size_t original_visgraph_size
+    ) {
+        // Remove temporary points from the points array
+        if (map_data.points.size() > original_point_count) {
+            map_data.points.resize(original_point_count);
+        }
+
+        // Remove edges added to existing points that reference temporary points
+        for (size_t i = 0; i < original_visgraph_size && i < map_data.visibility_graph.size(); ++i) {
+            auto& edges = map_data.visibility_graph[i];
+            edges.erase(
+                std::remove_if(edges.begin(), edges.end(),
+                    [original_point_count](const VisibilityEdge& edge) {
+                        return edge.target_id >= static_cast<int32_t>(original_point_count);
+                    }),
+                edges.end()
+            );
+        }
+
+        // Remove temporary vis_graph entries
+        if (map_data.visibility_graph.size() > original_visgraph_size) {
+            map_data.visibility_graph.resize(original_visgraph_size);
+        }
+    }
 
 } // namespace Pathfinder
