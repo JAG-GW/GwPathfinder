@@ -230,49 +230,22 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        MapData& map_data = it->second;
+        // Use const reference - we will NOT modify map_data
+        const MapData& map_data = it->second;
 
-        // Store original sizes for cleanup
-        size_t original_point_count = map_data.points.size();
-        size_t original_visgraph_size = map_data.visibility_graph.size();
-
-        // Try to create temporary points for start and goal positions
-        // This allows pathfinding from/to any valid position within trapezoids
-        int32_t start_id = -1;
-        int32_t goal_id = -1;
-        bool start_is_temp = false;
-        bool goal_is_temp = false;
-
-        // First, try to create a temporary point for start
-        start_id = CreateTemporaryPoint(map_data, start);
-        if (start_id >= 0) {
-            InsertPointIntoVisGraph(map_data, start_id);
-            start_is_temp = true;
-        } else {
-            // Fallback: find closest existing point
-            start_id = FindClosestPoint(map_data, start);
+        // Find start point: closest existing point
+        int32_t start_id = FindClosestPoint(map_data, start);
+        if (start_id < 0) {
+            return {}; // No valid start point
         }
 
-        // Then, try to create a temporary point for goal
-        goal_id = CreateTemporaryPoint(map_data, goal);
-        if (goal_id >= 0) {
-            InsertPointIntoVisGraph(map_data, goal_id);
-            goal_is_temp = true;
-        } else {
-            // Fallback: find closest existing point
-            goal_id = FindClosestPoint(map_data, goal);
+        // Find goal point: closest existing point
+        int32_t goal_id = FindClosestPoint(map_data, goal);
+        if (goal_id < 0) {
+            return {}; // No valid goal point
         }
 
-        // Check if we have valid start and goal points
-        if (start_id < 0 || goal_id < 0) {
-            // Cleanup temporary points if any were created
-            if (start_is_temp || goal_is_temp) {
-                RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
-            }
-            return {}; // Points not found
-        }
-
-        // Run A*
+        // Run A* (no graph modification needed)
         std::vector<int32_t> came_from = AStar(map_data, start_id, goal_id);
 
         std::vector<PathPointWithLayer> path;
@@ -280,16 +253,39 @@ namespace Pathfinder {
             // Reconstruct the path
             path = ReconstructPath(map_data, came_from, start_id, goal_id);
 
+            // Add the actual start position as first point if different from closest point
+            if (!path.empty()) {
+                const Vec2f& first_point = path[0].pos;
+                if (start.SquaredDistance(first_point) > 1.0f) {
+                    // Find layer for start position
+                    int32_t start_layer = path[0].layer;
+                    const Trapezoid* trap = map_data.FindTrapezoidContaining(start);
+                    if (trap) {
+                        start_layer = trap->layer;
+                    }
+                    path.insert(path.begin(), PathPointWithLayer(start, start_layer));
+                }
+            }
+
+            // Add the actual goal position as last point if different from closest point
+            if (!path.empty()) {
+                const Vec2f& last_point = path.back().pos;
+                if (goal.SquaredDistance(last_point) > 1.0f) {
+                    // Find layer for goal position
+                    int32_t goal_layer = path.back().layer;
+                    const Trapezoid* trap = map_data.FindTrapezoidContaining(goal);
+                    if (trap) {
+                        goal_layer = trap->layer;
+                    }
+                    path.push_back(PathPointWithLayer(goal, goal_layer));
+                }
+            }
+
             // Calculate total cost
             out_cost = 0.0f;
             for (size_t i = 1; i < path.size(); ++i) {
                 out_cost += path[i - 1].pos.Distance(path[i].pos);
             }
-        }
-
-        // Cleanup: remove temporary points
-        if (start_is_temp || goal_is_temp) {
-            RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
         }
 
         return path;
@@ -309,54 +305,22 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        MapData& map_data = it->second;
+        // Use const reference - we will NOT modify map_data
+        const MapData& map_data = it->second;
 
-        // Store original sizes for cleanup
-        size_t original_point_count = map_data.points.size();
-        size_t original_visgraph_size = map_data.visibility_graph.size();
-
-        // Try to create temporary points for start and goal positions
-        int32_t start_id = -1;
-        int32_t goal_id = -1;
-        bool start_is_temp = false;
-        bool goal_is_temp = false;
-
-        // First, try to create a temporary point for start (if not blocked by obstacle)
-        if (!IsPointBlocked(start, obstacles)) {
-            start_id = CreateTemporaryPoint(map_data, start);
-            if (start_id >= 0) {
-                InsertPointIntoVisGraph(map_data, start_id);
-                start_is_temp = true;
-            }
-        }
+        // Find start point: closest existing point avoiding obstacles
+        int32_t start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
         if (start_id < 0) {
-            // Fallback: find closest existing point avoiding obstacles
-            start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
+            return {}; // No valid start point
         }
 
-        // Then, try to create a temporary point for goal (if not blocked by obstacle)
-        if (!IsPointBlocked(goal, obstacles)) {
-            goal_id = CreateTemporaryPoint(map_data, goal);
-            if (goal_id >= 0) {
-                InsertPointIntoVisGraph(map_data, goal_id);
-                goal_is_temp = true;
-            }
-        }
+        // Find goal point: closest existing point avoiding obstacles
+        int32_t goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
         if (goal_id < 0) {
-            // Fallback: find closest existing point avoiding obstacles
-            goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+            return {}; // No valid goal point
         }
 
-        // Check if we have valid start and goal points
-        if (start_id < 0 || goal_id < 0) {
-            // Cleanup temporary points if any were created
-            if (start_is_temp || goal_is_temp) {
-                RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
-            }
-            return {}; // Points not found (all blocked or no points)
-        }
-
-        // Run A* with obstacle avoidance
+        // Run A* with obstacle avoidance (no graph modification needed)
         std::vector<int32_t> came_from = AStarWithObstacles(map_data, start_id, goal_id, obstacles);
 
         std::vector<PathPointWithLayer> path;
@@ -364,16 +328,39 @@ namespace Pathfinder {
             // Reconstruct the path
             path = ReconstructPath(map_data, came_from, start_id, goal_id);
 
+            // Add the actual start position as first point if different from closest point
+            if (!path.empty()) {
+                const Vec2f& first_point = path[0].pos;
+                if (start.SquaredDistance(first_point) > 1.0f) {
+                    // Find layer for start position
+                    int32_t start_layer = path[0].layer;
+                    const Trapezoid* trap = map_data.FindTrapezoidContaining(start);
+                    if (trap) {
+                        start_layer = trap->layer;
+                    }
+                    path.insert(path.begin(), PathPointWithLayer(start, start_layer));
+                }
+            }
+
+            // Add the actual goal position as last point if different from closest point
+            if (!path.empty()) {
+                const Vec2f& last_point = path.back().pos;
+                if (goal.SquaredDistance(last_point) > 1.0f) {
+                    // Find layer for goal position
+                    int32_t goal_layer = path.back().layer;
+                    const Trapezoid* trap = map_data.FindTrapezoidContaining(goal);
+                    if (trap) {
+                        goal_layer = trap->layer;
+                    }
+                    path.push_back(PathPointWithLayer(goal, goal_layer));
+                }
+            }
+
             // Calculate total cost
             out_cost = 0.0f;
             for (size_t i = 1; i < path.size(); ++i) {
                 out_cost += path[i - 1].pos.Distance(path[i].pos);
             }
-        }
-
-        // Cleanup: remove temporary points
-        if (start_is_temp || goal_is_temp) {
-            RemoveTemporaryPoints(map_data, original_point_count, original_visgraph_size);
         }
 
         return path;
@@ -836,13 +823,10 @@ namespace Pathfinder {
         size_t original_point_count,
         size_t original_visgraph_size
     ) {
-        // Remove temporary points from the points array
-        if (map_data.points.size() > original_point_count) {
-            map_data.points.resize(original_point_count);
-        }
-
         // Remove edges added to existing points that reference temporary points
-        for (size_t i = 0; i < original_visgraph_size && i < map_data.visibility_graph.size(); ++i) {
+        // IMPORTANT: We must iterate through ALL original points, not just up to original_visgraph_size
+        // because InsertPointIntoVisGraph adds bidirectional edges to existing points
+        for (size_t i = 0; i < original_point_count && i < map_data.visibility_graph.size(); ++i) {
             auto& edges = map_data.visibility_graph[i];
             edges.erase(
                 std::remove_if(edges.begin(), edges.end(),
@@ -856,6 +840,11 @@ namespace Pathfinder {
         // Remove temporary vis_graph entries
         if (map_data.visibility_graph.size() > original_visgraph_size) {
             map_data.visibility_graph.resize(original_visgraph_size);
+        }
+
+        // Remove temporary points from the points array
+        if (map_data.points.size() > original_point_count) {
+            map_data.points.resize(original_point_count);
         }
     }
 
