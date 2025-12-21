@@ -383,9 +383,14 @@
         <h2>GW Pathfinding Editor</h2>
 
         <div class="control-group">
-            <label for="fileInput" class="file-label">Load JSON File</label>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button id="btnPrevFile" style="width: 40px; padding: 8px;" disabled title="Previous file">−</button>
+                <label for="fileInput" class="file-label" style="flex: 1; margin: 0;">Load JSON File</label>
+                <button id="btnNextFile" style="width: 40px; padding: 8px;" disabled title="Next file">+</button>
+            </div>
             <input type="file" id="fileInput" accept=".json">
-            <button id="saveButton" style="margin-top: 10px; width: 100%;" disabled>Save JSON File</button>
+            <button id="btnSelectFolder" class="secondary" style="margin-top: 5px; width: 100%;">Select Folder (for +/-)</button>
+            <button id="saveButton" style="margin-top: 5px; width: 100%;" disabled>Save JSON File</button>
         </div>
 
         <div id="mapInfo" class="info-box" style="display: none;">
@@ -596,6 +601,9 @@
             lastY: 0,
             bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
             currentFileName: null,
+            currentFileHandle: null,
+            directoryHandle: null,
+            directoryFiles: [],
             hasUnsavedChanges: false,
 
             // Edit modes
@@ -841,12 +849,28 @@
         // File loading and saving
         document.getElementById('fileInput').addEventListener('change', handleFileSelect);
         document.getElementById('saveButton').addEventListener('click', saveJSON);
+        document.getElementById('btnPrevFile').addEventListener('click', loadPreviousFile);
+        document.getElementById('btnNextFile').addEventListener('click', loadNextFile);
 
-        function handleFileSelect(e) {
+        async function handleFileSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             state.currentFileName = file.name;
+
+            // Try to get directory handle for prev/next navigation
+            if (window.showDirectoryPicker) {
+                try {
+                    // Use the file input to get directory access
+                    const input = e.target;
+                    if (input.webkitEntries && input.webkitEntries.length > 0) {
+                        // Some browsers support this
+                    }
+                } catch (err) {
+                    console.log('Could not get directory handle:', err);
+                }
+            }
+
             const reader = new FileReader();
             reader.onload = function(event) {
                 try {
@@ -854,12 +878,111 @@
                     loadMapData();
                     state.hasUnsavedChanges = false;
                     updateSaveButton();
+                    updateNavigationButtons();
                 } catch (error) {
                     alert('Error parsing JSON: ' + error.message);
                 }
             };
             reader.readAsText(file);
         }
+
+        // Get the numeric prefix from filename
+        function getFileNumber(filename) {
+            const match = filename.match(/^(\d+)_/);
+            return match ? parseInt(match[1]) : null;
+        }
+
+        // Update prev/next button states
+        function updateNavigationButtons() {
+            const hasDirHandle = state.directoryHandle !== null;
+            const hasFile = state.currentFileName !== null;
+            document.getElementById('btnPrevFile').disabled = !hasDirHandle || !hasFile;
+            document.getElementById('btnNextFile').disabled = !hasDirHandle || !hasFile;
+        }
+
+        // Find adjacent file in directory
+        async function findAdjacentFile(direction) {
+            if (!state.directoryHandle || !state.currentFileName) return null;
+
+            const currentNum = getFileNumber(state.currentFileName);
+            if (currentNum === null) return null;
+
+            // Refresh file list
+            state.directoryFiles = [];
+            for await (const entry of state.directoryHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    const num = getFileNumber(entry.name);
+                    if (num !== null) {
+                        state.directoryFiles.push({ name: entry.name, num: num, handle: entry });
+                    }
+                }
+            }
+
+            // Sort by number
+            state.directoryFiles.sort((a, b) => a.num - b.num);
+
+            // Find current file index
+            const currentIndex = state.directoryFiles.findIndex(f => f.name === state.currentFileName);
+            if (currentIndex === -1) return null;
+
+            // Get adjacent file
+            const targetIndex = currentIndex + direction;
+            if (targetIndex < 0 || targetIndex >= state.directoryFiles.length) return null;
+
+            return state.directoryFiles[targetIndex];
+        }
+
+        async function loadPreviousFile() {
+            const prevFile = await findAdjacentFile(-1);
+            if (prevFile) {
+                await loadFileFromHandle(prevFile.handle);
+            } else {
+                showStatus('No previous file found', 'info');
+            }
+        }
+
+        async function loadNextFile() {
+            const nextFile = await findAdjacentFile(1);
+            if (nextFile) {
+                await loadFileFromHandle(nextFile.handle);
+            } else {
+                showStatus('No next file found', 'info');
+            }
+        }
+
+        async function loadFileFromHandle(fileHandle) {
+            try {
+                const file = await fileHandle.getFile();
+                state.currentFileName = file.name;
+                state.currentFileHandle = fileHandle;
+
+                const content = await file.text();
+                state.data = JSON.parse(content);
+                loadMapData();
+                state.hasUnsavedChanges = false;
+                updateSaveButton();
+                showStatus('Loaded: ' + file.name, 'success');
+            } catch (error) {
+                alert('Error loading file: ' + error.message);
+            }
+        }
+
+        // Allow user to select a directory for navigation
+        document.getElementById('btnSelectFolder').addEventListener('click', async () => {
+            if (!window.showDirectoryPicker) {
+                alert('Directory picker not supported in this browser. Use Chrome or Edge.');
+                return;
+            }
+            try {
+                state.directoryHandle = await window.showDirectoryPicker();
+                showStatus('Folder selected! Use +/- to navigate files.', 'success');
+                updateNavigationButtons();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Error selecting directory:', err);
+                }
+            }
+        });
 
         function saveJSON() {
             if (!state.data) return;
@@ -2823,6 +2946,20 @@
                 e.preventDefault();
                 if (state.data && state.hasUnsavedChanges) {
                     saveJSON();
+                }
+            }
+
+            // Copy mouse position to clipboard when pressing 's' (without modifiers)
+            if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (state.data && state.lastMouseWorld) {
+                    const x = Math.round(state.lastMouseWorld.x);
+                    const y = Math.round(state.lastMouseWorld.y);
+                    const coordText = `[${x}, ${y}]`;
+                    navigator.clipboard.writeText(coordText).then(() => {
+                        showStatus(`Copied: ${coordText}`, 'success');
+                    }).catch(err => {
+                        showStatus('Failed to copy coordinates', 'error');
+                    });
                 }
             }
         });
