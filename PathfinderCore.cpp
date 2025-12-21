@@ -230,56 +230,47 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        // Use const reference - we will NOT modify map_data
-        const MapData& map_data = it->second;
+        // Make a COPY of map_data for temporary point insertion
+        // This ensures we don't corrupt the original data
+        MapData map_data = it->second;
 
-        // Find start point: closest existing point
-        int32_t start_id = FindClosestPoint(map_data, start);
+        // Save original sizes for cleanup
+        size_t original_point_count = map_data.points.size();
+        size_t original_visgraph_size = map_data.visibility_graph.size();
+
+        // Create temporary start point
+        int32_t start_id = CreateTemporaryPoint(map_data, start);
         if (start_id < 0) {
-            return {}; // No valid start point
+            // Fallback to closest existing point
+            start_id = FindClosestPoint(map_data, start);
+            if (start_id < 0) {
+                return {}; // No valid start point
+            }
+        } else {
+            // Insert the temporary point into the visibility graph
+            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
         }
 
-        // Find goal point: closest existing point
-        int32_t goal_id = FindClosestPoint(map_data, goal);
+        // Create temporary goal point
+        int32_t goal_id = CreateTemporaryPoint(map_data, goal);
         if (goal_id < 0) {
-            return {}; // No valid goal point
+            // Fallback to closest existing point
+            goal_id = FindClosestPoint(map_data, goal);
+            if (goal_id < 0) {
+                return {}; // No valid goal point
+            }
+        } else {
+            // Insert the temporary point into the visibility graph
+            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f);
         }
 
-        // Run A* (no graph modification needed)
+        // Run A*
         std::vector<int32_t> came_from = AStar(map_data, start_id, goal_id);
 
         std::vector<PathPointWithLayer> path;
         if (!came_from.empty()) {
-            // Reconstruct the path
-            path = ReconstructPath(map_data, came_from, start_id, goal_id);
-
-            // Add the actual start position as first point if different from closest point
-            if (!path.empty()) {
-                const Vec2f& first_point = path[0].pos;
-                if (start.SquaredDistance(first_point) > 1.0f) {
-                    // Find layer for start position
-                    int32_t start_layer = path[0].layer;
-                    const Trapezoid* trap = map_data.FindTrapezoidContaining(start);
-                    if (trap) {
-                        start_layer = trap->layer;
-                    }
-                    path.insert(path.begin(), PathPointWithLayer(start, start_layer));
-                }
-            }
-
-            // Add the actual goal position as last point if different from closest point
-            if (!path.empty()) {
-                const Vec2f& last_point = path.back().pos;
-                if (goal.SquaredDistance(last_point) > 1.0f) {
-                    // Find layer for goal position
-                    int32_t goal_layer = path.back().layer;
-                    const Trapezoid* trap = map_data.FindTrapezoidContaining(goal);
-                    if (trap) {
-                        goal_layer = trap->layer;
-                    }
-                    path.push_back(PathPointWithLayer(goal, goal_layer));
-                }
-            }
+            // Reconstruct the path (includes start point now since it's a temp point)
+            path = ReconstructPathWithStart(map_data, came_from, start_id, goal_id);
 
             // Calculate total cost
             out_cost = 0.0f;
@@ -287,6 +278,8 @@ namespace Pathfinder {
                 out_cost += path[i - 1].pos.Distance(path[i].pos);
             }
         }
+
+        // No need to clean up - map_data is a local copy that will be destroyed
 
         return path;
     }
@@ -305,56 +298,43 @@ namespace Pathfinder {
             return {}; // Map not loaded
         }
 
-        // Use const reference - we will NOT modify map_data
-        const MapData& map_data = it->second;
+        // Make a COPY of map_data for temporary point insertion
+        // This ensures we don't corrupt the original data
+        MapData map_data = it->second;
 
-        // Find start point: closest existing point avoiding obstacles
-        int32_t start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
+        // Create temporary start point
+        int32_t start_id = CreateTemporaryPoint(map_data, start);
         if (start_id < 0) {
-            return {}; // No valid start point
+            // Fallback to closest existing point avoiding obstacles
+            start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
+            if (start_id < 0) {
+                return {}; // No valid start point
+            }
+        } else {
+            // Insert the temporary point into the visibility graph
+            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
         }
 
-        // Find goal point: closest existing point avoiding obstacles
-        int32_t goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+        // Create temporary goal point
+        int32_t goal_id = CreateTemporaryPoint(map_data, goal);
         if (goal_id < 0) {
-            return {}; // No valid goal point
+            // Fallback to closest existing point avoiding obstacles
+            goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+            if (goal_id < 0) {
+                return {}; // No valid goal point
+            }
+        } else {
+            // Insert the temporary point into the visibility graph
+            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f);
         }
 
-        // Run A* with obstacle avoidance (no graph modification needed)
+        // Run A* with obstacle avoidance
         std::vector<int32_t> came_from = AStarWithObstacles(map_data, start_id, goal_id, obstacles);
 
         std::vector<PathPointWithLayer> path;
         if (!came_from.empty()) {
-            // Reconstruct the path
-            path = ReconstructPath(map_data, came_from, start_id, goal_id);
-
-            // Add the actual start position as first point if different from closest point
-            if (!path.empty()) {
-                const Vec2f& first_point = path[0].pos;
-                if (start.SquaredDistance(first_point) > 1.0f) {
-                    // Find layer for start position
-                    int32_t start_layer = path[0].layer;
-                    const Trapezoid* trap = map_data.FindTrapezoidContaining(start);
-                    if (trap) {
-                        start_layer = trap->layer;
-                    }
-                    path.insert(path.begin(), PathPointWithLayer(start, start_layer));
-                }
-            }
-
-            // Add the actual goal position as last point if different from closest point
-            if (!path.empty()) {
-                const Vec2f& last_point = path.back().pos;
-                if (goal.SquaredDistance(last_point) > 1.0f) {
-                    // Find layer for goal position
-                    int32_t goal_layer = path.back().layer;
-                    const Trapezoid* trap = map_data.FindTrapezoidContaining(goal);
-                    if (trap) {
-                        goal_layer = trap->layer;
-                    }
-                    path.push_back(PathPointWithLayer(goal, goal_layer));
-                }
-            }
+            // Reconstruct the path (includes start point since it's a temp point)
+            path = ReconstructPathWithStart(map_data, came_from, start_id, goal_id);
 
             // Calculate total cost
             out_cost = 0.0f;
@@ -362,6 +342,8 @@ namespace Pathfinder {
                 out_cost += path[i - 1].pos.Distance(path[i].pos);
             }
         }
+
+        // No need to clean up - map_data is a local copy that will be destroyed
 
         return path;
     }
@@ -554,7 +536,37 @@ namespace Pathfinder {
             count++;
         }
 
-        if (current == start_id) {
+        // Note: We do NOT add start_id to the path
+        // The player is already near start_id, so the first waypoint
+        // should be the next point they need to walk TO
+
+        std::reverse(path.begin(), path.end());
+        return path;
+    }
+
+    std::vector<PathPointWithLayer> PathfinderEngine::ReconstructPathWithStart(
+        const MapData& map_data,
+        const std::vector<int32_t>& came_from,
+        int32_t start_id,
+        int32_t goal_id
+    ) {
+        std::vector<PathPointWithLayer> path;
+        int32_t current = goal_id;
+        int32_t count = 0;
+        const int32_t max_count = static_cast<int32_t>(map_data.points.size() * 2);
+
+        while (current != start_id && count < max_count) {
+            if (current < 0 || current >= static_cast<int32_t>(map_data.points.size())) {
+                break;
+            }
+
+            path.emplace_back(map_data.points[current].pos, map_data.points[current].layer);
+            current = came_from[current];
+            count++;
+        }
+
+        // Include start_id in the path (for temporary points created at exact position)
+        if (current == start_id && start_id >= 0 && start_id < static_cast<int32_t>(map_data.points.size())) {
             path.emplace_back(map_data.points[start_id].pos, map_data.points[start_id].layer);
         }
 
@@ -570,6 +582,8 @@ namespace Pathfinder {
             return -1;
         }
 
+        // Simply find the closest point by distance
+        // The A* algorithm will handle connectivity through the visibility graph
         int32_t closest_id = -1;
         float min_dist = std::numeric_limits<float>::infinity();
 
@@ -593,6 +607,8 @@ namespace Pathfinder {
             return -1;
         }
 
+        // Simply find the closest point by distance, avoiding obstacles
+        // The A* algorithm will handle connectivity through the visibility graph
         int32_t closest_id = -1;
         float min_dist = std::numeric_limits<float>::infinity();
 

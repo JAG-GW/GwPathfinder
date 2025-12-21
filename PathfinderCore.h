@@ -333,6 +333,14 @@ namespace Pathfinder {
             int32_t goal_id
         );
 
+        // Reconstructs the path from A* results, including start point
+        std::vector<PathPointWithLayer> ReconstructPathWithStart(
+            const MapData& map_data,
+            const std::vector<int32_t>& came_from,
+            int32_t start_id,
+            int32_t goal_id
+        );
+
         // Parses a map's JSON
         bool ParseMapJson(const std::string& json_data, MapData& out_map_data);
 
