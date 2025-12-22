@@ -238,14 +238,20 @@ namespace Pathfinder {
         size_t original_point_count = map_data.points.size();
         size_t original_visgraph_size = map_data.visibility_graph.size();
 
+        // Track if goal was found in a trapezoid or used fallback
+        bool goal_used_fallback = false;
+
         // Create temporary start point
         int32_t start_id = CreateTemporaryPoint(map_data, start);
         if (start_id < 0) {
-            // Fallback to closest existing point
-            start_id = FindClosestPoint(map_data, start);
+            // Position not on a trapezoid - create a temporary point anyway at this position
+            // and connect it to nearby points (cross-layer to ensure reachability)
+            start_id = CreateTemporaryPointForced(map_data, start);
             if (start_id < 0) {
                 return {}; // No valid start point
             }
+            // Connect to nearby points, allowing cross-layer connections
+            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
         } else {
             // Insert the temporary point into the visibility graph
             InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
@@ -254,11 +260,15 @@ namespace Pathfinder {
         // Create temporary goal point
         int32_t goal_id = CreateTemporaryPoint(map_data, goal);
         if (goal_id < 0) {
-            // Fallback to closest existing point
-            goal_id = FindClosestPoint(map_data, goal);
+            // Position not on a trapezoid - create a temporary point anyway at this position
+            // and connect it to nearby points (cross-layer to ensure reachability)
+            goal_id = CreateTemporaryPointForced(map_data, goal);
+            goal_used_fallback = true;
             if (goal_id < 0) {
                 return {}; // No valid goal point
             }
+            // Connect to nearby points, allowing cross-layer connections
+            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f, true);
         } else {
             // Insert the temporary point into the visibility graph
             InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f);
@@ -271,6 +281,12 @@ namespace Pathfinder {
         if (!came_from.empty()) {
             // Reconstruct the path (includes start point now since it's a temp point)
             path = ReconstructPathWithStart(map_data, came_from, start_id, goal_id);
+
+            // If goal used fallback, add the original goal position at the end
+            if (goal_used_fallback && !path.empty()) {
+                int32_t goal_layer = path.back().layer; // Use same layer as last point
+                path.emplace_back(goal, goal_layer);
+            }
 
             // Calculate total cost
             out_cost = 0.0f;
@@ -302,14 +318,19 @@ namespace Pathfinder {
         // This ensures we don't corrupt the original data
         MapData map_data = it->second;
 
+        // Track if goal was found in a trapezoid or used fallback
+        bool goal_used_fallback = false;
+
         // Create temporary start point
         int32_t start_id = CreateTemporaryPoint(map_data, start);
         if (start_id < 0) {
-            // Fallback to closest existing point avoiding obstacles
-            start_id = FindClosestPointAvoidingObstacles(map_data, start, obstacles);
+            // Position not on a trapezoid - create a temporary point anyway at this position
+            start_id = CreateTemporaryPointForced(map_data, start);
             if (start_id < 0) {
                 return {}; // No valid start point
             }
+            // Connect to nearby points, allowing cross-layer connections
+            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
         } else {
             // Insert the temporary point into the visibility graph
             InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
@@ -318,11 +339,14 @@ namespace Pathfinder {
         // Create temporary goal point
         int32_t goal_id = CreateTemporaryPoint(map_data, goal);
         if (goal_id < 0) {
-            // Fallback to closest existing point avoiding obstacles
-            goal_id = FindClosestPointAvoidingObstacles(map_data, goal, obstacles);
+            // Position not on a trapezoid - create a temporary point anyway at this position
+            goal_id = CreateTemporaryPointForced(map_data, goal);
+            goal_used_fallback = true;
             if (goal_id < 0) {
                 return {}; // No valid goal point
             }
+            // Connect to nearby points, allowing cross-layer connections
+            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f, true);
         } else {
             // Insert the temporary point into the visibility graph
             InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f);
@@ -335,6 +359,12 @@ namespace Pathfinder {
         if (!came_from.empty()) {
             // Reconstruct the path (includes start point since it's a temp point)
             path = ReconstructPathWithStart(map_data, came_from, start_id, goal_id);
+
+            // If goal used fallback, add the original goal position at the end
+            if (goal_used_fallback && !path.empty()) {
+                int32_t goal_layer = path.back().layer; // Use same layer as last point
+                path.emplace_back(goal, goal_layer);
+            }
 
             // Calculate total cost
             out_cost = 0.0f;
@@ -758,15 +788,71 @@ namespace Pathfinder {
         MapData& map_data,
         const Vec2f& pos
     ) {
-        // Find the trapezoid containing this position
+        // First, check if the position is inside a trapezoid
         const Trapezoid* trap = map_data.FindTrapezoidContaining(pos);
-        if (!trap) {
-            return -1; // Point is not in a valid walkable area
+        if (trap) {
+            // Create a new point with a unique ID on the trapezoid's layer
+            int32_t new_id = static_cast<int32_t>(map_data.points.size());
+            map_data.points.emplace_back(new_id, pos, trap->layer);
+
+            // Ensure the visibility graph has space for this point
+            if (map_data.visibility_graph.size() <= static_cast<size_t>(new_id)) {
+                map_data.visibility_graph.resize(new_id + 1);
+            }
+
+            return new_id;
+        }
+
+        // Not on a trapezoid - check if there's a nearby point on a layer (within range)
+        // This handles cases where the position is on a layer but not inside a trapezoid
+        const float layer_range = 500.0f; // Max distance to consider as "on a layer"
+        const float layer_range_squared = layer_range * layer_range;
+
+        int32_t closest_id = -1;
+        float min_dist_sq = std::numeric_limits<float>::infinity();
+
+        for (const auto& point : map_data.points) {
+            float dist_sq = pos.SquaredDistance(point.pos);
+            if (dist_sq < min_dist_sq && dist_sq < layer_range_squared) {
+                min_dist_sq = dist_sq;
+                closest_id = point.id;
+            }
+        }
+
+        if (closest_id >= 0) {
+            // Found a nearby point - create temporary point on the same layer
+            int32_t layer = map_data.points[closest_id].layer;
+            int32_t new_id = static_cast<int32_t>(map_data.points.size());
+            map_data.points.emplace_back(new_id, pos, layer);
+
+            // Ensure the visibility graph has space for this point
+            if (map_data.visibility_graph.size() <= static_cast<size_t>(new_id)) {
+                map_data.visibility_graph.resize(new_id + 1);
+            }
+
+            return new_id;
+        }
+
+        // Not on a trapezoid and not near any layer point
+        return -1;
+    }
+
+    int32_t PathfinderEngine::CreateTemporaryPointForced(
+        MapData& map_data,
+        const Vec2f& pos
+    ) {
+        // Create a temporary point at this position regardless of trapezoid or layer
+        // Find the closest existing point to determine the layer
+        int32_t closest_id = FindClosestPoint(map_data, pos);
+        int32_t layer = 0;
+
+        if (closest_id >= 0 && closest_id < static_cast<int32_t>(map_data.points.size())) {
+            layer = map_data.points[closest_id].layer;
         }
 
         // Create a new point with a unique ID
         int32_t new_id = static_cast<int32_t>(map_data.points.size());
-        map_data.points.emplace_back(new_id, pos, trap->layer);
+        map_data.points.emplace_back(new_id, pos, layer);
 
         // Ensure the visibility graph has space for this point
         if (map_data.visibility_graph.size() <= static_cast<size_t>(new_id)) {
@@ -780,7 +866,8 @@ namespace Pathfinder {
         MapData& map_data,
         int32_t point_id,
         int32_t max_connections,
-        float max_range
+        float max_range,
+        bool allow_cross_layer
     ) {
         if (point_id < 0 || point_id >= static_cast<int32_t>(map_data.points.size())) {
             return;
@@ -801,17 +888,14 @@ namespace Pathfinder {
 
             const Point& other = map_data.points[i];
 
-            // Skip points on different layers (unless we have teleporters)
-            // For now, only connect to points on the same layer
-            if (other.layer != point.layer) continue;
+            // Skip points on different layers unless cross-layer connections are allowed
+            if (!allow_cross_layer && other.layer != point.layer) continue;
 
             float dist_sq = point.pos.SquaredDistance(other.pos);
             if (dist_sq < max_range_squared) {
-                // Check if this point has connections in the vis_graph
-                // Only connect to points that are already connected to others
-                if (i < map_data.visibility_graph.size() && !map_data.visibility_graph[i].empty()) {
-                    connections.push_back({static_cast<int32_t>(i), std::sqrt(dist_sq)});
-                }
+                // Connect to all nearby points
+                // This allows reaching isolated points that have no existing connections
+                connections.push_back({static_cast<int32_t>(i), std::sqrt(dist_sq)});
             }
         }
 

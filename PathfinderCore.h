@@ -351,12 +351,22 @@ namespace Pathfinder {
             const Vec2f& pos
         );
 
+        // Creates a temporary point at the given position regardless of trapezoid
+        // Uses the layer of the closest existing point
+        // Returns the point ID
+        int32_t CreateTemporaryPointForced(
+            MapData& map_data,
+            const Vec2f& pos
+        );
+
         // Inserts a temporary point into the visibility graph by connecting it to nearby points
+        // If allow_cross_layer is true, connections can be made across different layers
         void InsertPointIntoVisGraph(
             MapData& map_data,
             int32_t point_id,
             int32_t max_connections = 8,
-            float max_range = 5000.0f
+            float max_range = 5000.0f,
+            bool allow_cross_layer = false
         );
 
         // Removes temporary points from the map data (cleanup after pathfinding)
