@@ -217,92 +217,10 @@ namespace Pathfinder {
         }
     }
 
-    std::vector<PathPointWithLayer> PathfinderEngine::FindPath(
-        int32_t map_id,
-        const Vec2f& start,
-        const Vec2f& goal,
-        float& out_cost
-    ) {
-        out_cost = -1.0f;
-
-        auto it = m_loaded_maps.find(map_id);
-        if (it == m_loaded_maps.end()) {
-            return {}; // Map not loaded
-        }
-
-        // Make a COPY of map_data for temporary point insertion
-        // This ensures we don't corrupt the original data
-        MapData map_data = it->second;
-
-        // Save original sizes for cleanup
-        size_t original_point_count = map_data.points.size();
-        size_t original_visgraph_size = map_data.visibility_graph.size();
-
-        // Track if goal was found in a trapezoid or used fallback
-        bool goal_used_fallback = false;
-
-        // Create temporary start point
-        int32_t start_id = CreateTemporaryPoint(map_data, start);
-        if (start_id < 0) {
-            // Position not on a trapezoid - create a temporary point anyway at this position
-            // and connect it to nearby points (cross-layer to ensure reachability)
-            start_id = CreateTemporaryPointForced(map_data, start);
-            if (start_id < 0) {
-                return {}; // No valid start point
-            }
-            // Connect to nearby points, allowing cross-layer connections
-            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
-        } else {
-            // Insert the temporary point into the visibility graph
-            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
-        }
-
-        // Create temporary goal point
-        int32_t goal_id = CreateTemporaryPoint(map_data, goal);
-        if (goal_id < 0) {
-            // Position not on a trapezoid - create a temporary point anyway at this position
-            // and connect it to nearby points (cross-layer to ensure reachability)
-            goal_id = CreateTemporaryPointForced(map_data, goal);
-            goal_used_fallback = true;
-            if (goal_id < 0) {
-                return {}; // No valid goal point
-            }
-            // Connect to nearby points, allowing cross-layer connections
-            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f, true);
-        } else {
-            // Insert the temporary point into the visibility graph
-            InsertPointIntoVisGraph(map_data, goal_id, 8, 5000.0f);
-        }
-
-        // Run A*
-        std::vector<int32_t> came_from = AStar(map_data, start_id, goal_id);
-
-        std::vector<PathPointWithLayer> path;
-        if (!came_from.empty()) {
-            // Reconstruct the path (includes start point now since it's a temp point)
-            path = ReconstructPathWithStart(map_data, came_from, start_id, goal_id);
-
-            // If goal used fallback, add the original goal position at the end
-            if (goal_used_fallback && !path.empty()) {
-                int32_t goal_layer = path.back().layer; // Use same layer as last point
-                path.emplace_back(goal, goal_layer);
-            }
-
-            // Calculate total cost
-            out_cost = 0.0f;
-            for (size_t i = 1; i < path.size(); ++i) {
-                out_cost += path[i - 1].pos.Distance(path[i].pos);
-            }
-        }
-
-        // No need to clean up - map_data is a local copy that will be destroyed
-
-        return path;
-    }
-
     std::vector<PathPointWithLayer> PathfinderEngine::FindPathWithObstacles(
         int32_t map_id,
         const Vec2f& start,
+        int32_t start_layer,
         const Vec2f& goal,
         const std::vector<ObstacleZone>& obstacles,
         float& out_cost
@@ -322,18 +240,31 @@ namespace Pathfinder {
         bool goal_used_fallback = false;
 
         // Create temporary start point
-        int32_t start_id = CreateTemporaryPoint(map_data, start);
+        int32_t start_id = -1;
+
+        if (start_layer >= 0) {
+            // User specified a layer - create a forced point with this layer
+            start_id = CreateTemporaryPointWithLayer(map_data, start, start_layer);
+            if (start_id >= 0) {
+                // Connect to nearby points on the same layer first, then cross-layer
+                InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
+            }
+        } else {
+            // Auto-detect layer from trapezoid or nearby points
+            start_id = CreateTemporaryPoint(map_data, start);
+            if (start_id >= 0) {
+                InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
+            }
+        }
+
         if (start_id < 0) {
-            // Position not on a trapezoid - create a temporary point anyway at this position
+            // Position not on a trapezoid and no layer specified - create a forced point
             start_id = CreateTemporaryPointForced(map_data, start);
             if (start_id < 0) {
                 return {}; // No valid start point
             }
             // Connect to nearby points, allowing cross-layer connections
             InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
-        } else {
-            // Insert the temporary point into the visibility graph
-            InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f);
         }
 
         // Create temporary goal point
@@ -851,6 +782,23 @@ namespace Pathfinder {
         }
 
         // Create a new point with a unique ID
+        int32_t new_id = static_cast<int32_t>(map_data.points.size());
+        map_data.points.emplace_back(new_id, pos, layer);
+
+        // Ensure the visibility graph has space for this point
+        if (map_data.visibility_graph.size() <= static_cast<size_t>(new_id)) {
+            map_data.visibility_graph.resize(new_id + 1);
+        }
+
+        return new_id;
+    }
+
+    int32_t PathfinderEngine::CreateTemporaryPointWithLayer(
+        MapData& map_data,
+        const Vec2f& pos,
+        int32_t layer
+    ) {
+        // Create a temporary point at this position with the specified layer
         int32_t new_id = static_cast<int32_t>(map_data.points.size());
         map_data.points.emplace_back(new_id, pos, layer);
 

@@ -45,101 +45,11 @@ extern "C" {
         }
     }
 
-    PATHFINDER_API PathResult* FindPath(
-        int32_t map_id,
-        float start_x,
-        float start_y,
-        float dest_x,
-        float dest_y,
-        float range
-    ) {
-        // Auto-initialize if necessary
-        if (!g_initialized) {
-            if (!Initialize()) {
-                PathResult* result = new PathResult();
-                result->points = nullptr;
-                result->point_count = 0;
-                result->total_cost = -1.0f;
-                result->error_code = -1;
-                std::strncpy(result->error_message, "Failed to initialize pathfinder", 255);
-                return result;
-            }
-        }
-
-        PathResult* result = new PathResult();
-        result->points = nullptr;
-        result->point_count = 0;
-        result->total_cost = -1.0f;
-        result->error_code = 0;
-        result->error_message[0] = '\0';
-
-        try {
-            // Check if the map is loaded, otherwise load it from the archive
-            if (!g_engine->IsMapLoaded(map_id)) {
-                auto& registry = Pathfinder::MapDataRegistry::GetInstance();
-                std::string map_data = registry.GetMapData(map_id);
-
-                if (map_data.empty()) {
-                    result->error_code = 1;
-                    std::snprintf(result->error_message, 255, "Map %d not found in archive", map_id);
-                    return result;
-                }
-
-                // Load the map into the engine
-                if (!g_engine->LoadMapData(map_id, map_data)) {
-                    result->error_code = 1;
-                    std::snprintf(result->error_message, 255, "Failed to load map %d", map_id);
-                    return result;
-                }
-            }
-
-            // Find the path
-            Pathfinder::Vec2f start(start_x, start_y);
-            Pathfinder::Vec2f goal(dest_x, dest_y);
-            float cost = 0.0f;
-
-            std::vector<Pathfinder::PathPointWithLayer> path = g_engine->FindPath(map_id, start, goal, cost);
-
-            if (path.empty()) {
-                result->error_code = 2;
-                std::strncpy(result->error_message, "No path found", 255);
-                return result;
-            }
-
-            // Simplify the path if requested
-            if (range > 0.0f) {
-                path = g_engine->SimplifyPath(path, range);
-            }
-
-            // Allocate and copy the points
-            result->point_count = static_cast<int32_t>(path.size());
-            result->points = new PathPoint[result->point_count];
-            result->total_cost = cost;
-
-            for (int32_t i = 0; i < result->point_count; ++i) {
-                result->points[i].x = path[i].pos.x;
-                result->points[i].y = path[i].pos.y;
-                result->points[i].layer = path[i].layer;
-            }
-
-            return result;
-        }
-        catch (const std::exception& e) {
-            result->error_code = -2;
-            std::snprintf(result->error_message, 255, "Exception: %s", e.what());
-            return result;
-        }
-        catch (...) {
-            result->error_code = -3;
-            std::strncpy(result->error_message, "Unknown exception", 255);
-            return result;
-        }
-    }
-
     PATHFINDER_API PathResult* FindPathWithObstacles(
         int32_t map_id,
         float start_x,
         float start_y,
+        int32_t start_layer,
         float dest_x,
         float dest_y,
         ObstacleZone* obstacles,
@@ -204,14 +114,9 @@ extern "C" {
             Pathfinder::Vec2f goal(dest_x, dest_y);
             float cost = 0.0f;
 
-            std::vector<Pathfinder::PathPointWithLayer> path;
-            if (internal_obstacles.empty()) {
-                // No obstacles, use standard pathfinding
-                path = g_engine->FindPath(map_id, start, goal, cost);
-            } else {
-                // Use pathfinding with obstacle avoidance
-                path = g_engine->FindPathWithObstacles(map_id, start, goal, internal_obstacles, cost);
-            }
+            // Use pathfinding with obstacle avoidance (pass start_layer, -1 means auto-detect)
+            std::vector<Pathfinder::PathPointWithLayer> path =
+                g_engine->FindPathWithObstacles(map_id, start, start_layer, goal, internal_obstacles, cost);
 
             if (path.empty()) {
                 result->error_code = 2;

@@ -45,26 +45,6 @@ extern "C" {
     };
 
     /**
-     * @brief Finds a path between two points on a map
-     *
-     * @param map_id GW map ID
-     * @param start_x Starting X coordinate
-     * @param start_y Starting Y coordinate
-     * @param dest_x Destination X coordinate
-     * @param dest_y Destination Y coordinate
-     * @param range Minimum distance between simplified points (0 = no simplification)
-     * @return PathResult* Pointer to the result (must be freed with FreePathResult)
-     */
-    PATHFINDER_API PathResult* FindPath(
-        int32_t map_id,
-        float start_x,
-        float start_y,
-        float dest_x,
-        float dest_y,
-        float range
-    );
-
-    /**
      * @brief Finds a path between two points on a map, avoiding obstacle zones
      *
      * Points that fall within any obstacle zone will be excluded from the pathfinding graph.
@@ -73,6 +53,7 @@ extern "C" {
      * @param map_id GW map ID
      * @param start_x Starting X coordinate
      * @param start_y Starting Y coordinate
+     * @param start_layer Layer of the starting point (-1 = auto-detect)
      * @param dest_x Destination X coordinate
      * @param dest_y Destination Y coordinate
      * @param obstacles Array of obstacle zones to avoid (can be NULL if obstacle_count is 0)
@@ -84,6 +65,7 @@ extern "C" {
         int32_t map_id,
         float start_x,
         float start_y,
+        int32_t start_layer,
         float dest_x,
         float dest_y,
         ObstacleZone* obstacles,

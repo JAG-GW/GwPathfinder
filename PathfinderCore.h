@@ -244,18 +244,12 @@ namespace Pathfinder {
         // Loads map data from JSON
         bool LoadMapData(int32_t map_id, const std::string& json_data);
 
-        // Finds a path between two points
-        std::vector<PathPointWithLayer> FindPath(
-            int32_t map_id,
-            const Vec2f& start,
-            const Vec2f& goal,
-            float& out_cost
-        );
-
         // Finds a path between two points, avoiding obstacle zones
+        // start_layer: the layer of the starting point (-1 = auto-detect)
         std::vector<PathPointWithLayer> FindPathWithObstacles(
             int32_t map_id,
             const Vec2f& start,
+            int32_t start_layer,
             const Vec2f& goal,
             const std::vector<ObstacleZone>& obstacles,
             float& out_cost
@@ -357,6 +351,14 @@ namespace Pathfinder {
         int32_t CreateTemporaryPointForced(
             MapData& map_data,
             const Vec2f& pos
+        );
+
+        // Creates a temporary point at the given position with a specific layer
+        // Returns the point ID
+        int32_t CreateTemporaryPointWithLayer(
+            MapData& map_data,
+            const Vec2f& pos,
+            int32_t layer
         );
 
         // Inserts a temporary point into the visibility graph by connecting it to nearby points
