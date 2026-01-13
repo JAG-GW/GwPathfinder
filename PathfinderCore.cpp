@@ -246,8 +246,8 @@ namespace Pathfinder {
             // User specified a layer - create a forced point with this layer
             start_id = CreateTemporaryPointWithLayer(map_data, start, start_layer);
             if (start_id >= 0) {
-                // Connect to nearby points on the same layer first, then cross-layer
-                InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, true);
+                // Connect to nearby points on the SAME layer only
+                InsertPointIntoVisGraph(map_data, start_id, 8, 5000.0f, false);
             }
         } else {
             // Auto-detect layer from trapezoid or nearby points
