@@ -228,6 +228,16 @@ namespace Pathfinder {
         out_cost = -1.0f;
 
         try {
+            // Check if start and goal are the same (or very close)
+            // If so, return a single-point path immediately
+            float dist_sq = start.SquaredDistance(goal);
+            if (dist_sq < 100.0f) { // Less than 10 units apart
+                out_cost = 0.0f;
+                std::vector<PathPointWithLayer> path;
+                path.emplace_back(goal, start_layer >= 0 ? start_layer : 0);
+                return path;
+            }
+
             auto it = m_loaded_maps.find(map_id);
             if (it == m_loaded_maps.end()) {
                 return {}; // Map not loaded
