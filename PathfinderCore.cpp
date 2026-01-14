@@ -227,14 +227,20 @@ namespace Pathfinder {
     ) {
         out_cost = -1.0f;
 
-        auto it = m_loaded_maps.find(map_id);
-        if (it == m_loaded_maps.end()) {
-            return {}; // Map not loaded
-        }
+        try {
+            auto it = m_loaded_maps.find(map_id);
+            if (it == m_loaded_maps.end()) {
+                return {}; // Map not loaded
+            }
 
-        // Make a COPY of map_data for temporary point insertion
-        // This ensures we don't corrupt the original data
-        MapData map_data = it->second;
+            // Validate map data before proceeding
+            if (it->second.points.empty() || it->second.visibility_graph.empty()) {
+                return {}; // Invalid map data
+            }
+
+            // Make a COPY of map_data for temporary point insertion
+            // This ensures we don't corrupt the original data
+            MapData map_data = it->second;
 
         // Track if goal was found in a trapezoid or used fallback
         bool goal_used_fallback = false;
@@ -307,6 +313,12 @@ namespace Pathfinder {
         // No need to clean up - map_data is a local copy that will be destroyed
 
         return path;
+
+        } catch (const std::exception&) {
+            return {}; // Return empty path on any exception
+        } catch (...) {
+            return {}; // Catch any other exception
+        }
     }
 
     std::vector<int32_t> PathfinderEngine::AStar(
@@ -855,12 +867,22 @@ namespace Pathfinder {
             connections.resize(max_connections);
         }
 
+        // Ensure visibility graph is large enough for the new point
+        if (static_cast<size_t>(point_id) >= map_data.visibility_graph.size()) {
+            map_data.visibility_graph.resize(point_id + 1);
+        }
+
         // Add edges from the new point to nearby points
         for (const auto& conn : connections) {
+            // Verify connection target is valid
+            if (conn.id < 0 || conn.id >= static_cast<int32_t>(map_data.points.size())) {
+                continue;
+            }
+
             map_data.visibility_graph[point_id].emplace_back(conn.id, conn.distance);
 
             // Add reverse edge (bidirectional)
-            if (conn.id < static_cast<int32_t>(map_data.visibility_graph.size())) {
+            if (conn.id >= 0 && conn.id < static_cast<int32_t>(map_data.visibility_graph.size())) {
                 map_data.visibility_graph[conn.id].emplace_back(point_id, conn.distance);
             }
         }
